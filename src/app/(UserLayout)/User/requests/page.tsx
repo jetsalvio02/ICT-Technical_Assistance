@@ -1,0 +1,224 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useAuth } from "@/app/lib/auth/auth-context";
+import { useRouter } from "next/navigation";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { FileText, Loader2, Search, Filter } from "lucide-react";
+import { Input } from "@/components/ui/input";
+
+interface ServiceRequest {
+  id: string;
+  requestNumber: string;
+  problemDescription: string;
+  status: string;
+  priority: string;
+  createdAt: string;
+  categories?: { categoryType: string; subCategory: string }[];
+}
+
+export default function RequestsPage() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const [requests, setRequests] = useState<ServiceRequest[]>([]);
+  const [filteredRequests, setFilteredRequests] = useState<ServiceRequest[]>(
+    [],
+  );
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  useEffect(() => {
+    if (!user) return;
+
+    async function fetchRequests() {
+      try {
+        const res = await fetch(
+          `/api/service-requests?userId=${user!.id}&limit=100`,
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setRequests(data.data || []);
+          setFilteredRequests(data.data || []);
+        }
+      } catch (error) {
+        console.error("Error fetching requests:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchRequests();
+  }, [user]);
+
+  useEffect(() => {
+    let filtered = requests;
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (r) =>
+          r.requestNumber.toLowerCase().includes(q) ||
+          r.problemDescription.toLowerCase().includes(q),
+      );
+    }
+
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((r) => r.status === statusFilter);
+    }
+
+    setFilteredRequests(filtered);
+  }, [searchQuery, statusFilter, requests]);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "completed":
+        return "bg-green-100 text-green-800";
+      case "in_progress":
+        return "bg-amber-100 text-amber-800";
+      case "assigned":
+        return "bg-blue-100 text-blue-800";
+      case "pending":
+        return "bg-orange-100 text-orange-800";
+      case "cancelled":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const formatStatus = (status: string) =>
+    status
+      .split("_")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+
+  const statuses = [
+    "all",
+    "pending",
+    "assigned",
+    "in_progress",
+    "completed",
+    "cancelled",
+  ];
+
+  return (
+    <div className="p-6 md:p-8 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            All Requests
+          </h1>
+          <p className="text-muted-foreground">
+            Manage and track all your ICT technical assistance requests.
+          </p>
+        </div>
+        <Button
+          onClick={() => router.push("/User/appointments")}
+          className="w-full sm:w-auto"
+        >
+          New Request
+        </Button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by request number or description..."
+            value={searchQuery}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setSearchQuery(e.target.value)
+            }
+            className="pl-9"
+          />
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {statuses.map((s) => (
+            <Button
+              key={s}
+              variant={statusFilter === s ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter(s)}
+              className="capitalize text-xs"
+            >
+              {s === "all" ? "All" : formatStatus(s)}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {/* Requests List */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : filteredRequests.length === 0 ? (
+        <Card className="p-12">
+          <div className="text-center space-y-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-muted rounded-lg">
+              <FileText className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-1">
+                {requests.length === 0
+                  ? "No requests yet"
+                  : "No matching requests"}
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                {requests.length === 0
+                  ? "Create your first ICT support request to get started."
+                  : "Try adjusting your search or filters."}
+              </p>
+            </div>
+            {requests.length === 0 && (
+              <Button onClick={() => router.push("/User/appointments")}>
+                Create New Request
+              </Button>
+            )}
+          </div>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {filteredRequests.map((request) => (
+            <Card
+              key={request.id}
+              className="p-4 sm:p-5 hover:shadow-lg transition-shadow"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                      {request.requestNumber}
+                    </span>
+                    <Badge variant="outline" className="text-xs capitalize">
+                      {request.priority}
+                    </Badge>
+                  </div>
+                  <h3 className="font-semibold text-foreground mb-1 truncate">
+                    {request.problemDescription}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(request.createdAt).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </p>
+                </div>
+                <span
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium w-fit ${getStatusColor(request.status)}`}
+                >
+                  {formatStatus(request.status)}
+                </span>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
