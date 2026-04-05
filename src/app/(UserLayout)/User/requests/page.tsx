@@ -6,8 +6,9 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Loader2, Search, Filter } from "lucide-react";
+import { FileText, Loader2, Search, Filter, Trash2, Edit2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 interface ServiceRequest {
   id: string;
@@ -52,6 +53,32 @@ export default function RequestsPage() {
 
     fetchRequests();
   }, [user]);
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this request?"))
+      return;
+
+    try {
+      const res = await fetch(`/api/service-requests/${id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        setRequests((prev) => prev.filter((r) => r.id !== id));
+        toast.success("Request deleted successfully");
+      } else {
+        const data = await res.json();
+        toast.error(data.message || "Failed to delete request");
+      }
+    } catch (error) {
+      console.error("Error deleting request:", error);
+      toast.error("An error occurred while deleting the request");
+    }
+  };
+
+  const handleEdit = (id: string) => {
+    router.push(`/User/appointments?edit=${id}`);
+  };
 
   useEffect(() => {
     let filtered = requests;
@@ -194,9 +221,9 @@ export default function RequestsPage() {
                     <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">
                       {request.requestNumber}
                     </span>
-                    <Badge variant="outline" className="text-xs capitalize">
+                    {/* <Badge variant="outline" className="text-xs capitalize">
                       {request.priority}
-                    </Badge>
+                    </Badge> */}
                   </div>
                   <h3 className="font-semibold text-foreground mb-1 truncate">
                     {request.problemDescription}
@@ -214,6 +241,26 @@ export default function RequestsPage() {
                 >
                   {formatStatus(request.status)}
                 </span>
+                {request.status === "pending" && (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      onClick={() => handleEdit(request.id)}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => handleDelete(request.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
             </Card>
           ))}

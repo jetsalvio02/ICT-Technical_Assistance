@@ -338,7 +338,7 @@ export default function DepartmentsPage() {
                     <TableRow>
                       <TableCell sx={{ fontWeight: 700 }}>Name</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>Type</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>Code</TableCell>
+                      {/* <TableCell sx={{ fontWeight: 700 }}>Code</TableCell> */}
                       <TableCell sx={{ fontWeight: 700 }}>Actions</TableCell>
                     </TableRow>
                   </TableHead>
@@ -364,7 +364,7 @@ export default function DepartmentsPage() {
                               label={d.type}
                             />
                           </TableCell>
-                          <TableCell>{d.code || "-"}</TableCell>
+                          {/* <TableCell>{d.code || "-"}</TableCell> */}
                           <TableCell>
                             <Stack direction="row" spacing={1}>
                               <IconButton
@@ -488,26 +488,30 @@ export default function DepartmentsPage() {
                 }
               >
                 <MenuItem value="District">District</MenuItem>
-                <MenuItem value="Cluster">Cluster</MenuItem>
+                {/* <MenuItem value="Cluster">Cluster</MenuItem> */}
               </Select>
             </FormControl>
             <TextField
               fullWidth
-              label="Name"
+              label={
+                districtForm.type === "District"
+                  ? "District Name"
+                  : "Cluster Name"
+              }
               value={districtForm.name}
               onChange={(e) =>
                 setDistrictForm({ ...districtForm, name: e.target.value })
               }
             />
-            <TextField
+            {/* <TextField
               fullWidth
               label="Code"
               value={districtForm.code}
               onChange={(e) =>
                 setDistrictForm({ ...districtForm, code: e.target.value })
               }
-            />
-            <TextField
+            /> */}
+            {/* <TextField
               fullWidth
               label="Description"
               multiline
@@ -519,7 +523,7 @@ export default function DepartmentsPage() {
                   description: e.target.value,
                 })
               }
-            />
+            /> */}
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -577,7 +581,9 @@ export default function DepartmentsPage() {
             </Stack>
             <TextField
               fullWidth
-              label="Name"
+              label={
+                officeForm.type === "Office" ? "Office Name" : "School Name"
+              }
               value={officeForm.name}
               onChange={(e) =>
                 setOfficeForm({ ...officeForm, name: e.target.value })

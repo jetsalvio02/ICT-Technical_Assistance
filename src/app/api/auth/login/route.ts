@@ -35,7 +35,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           message:
-            "Your account has been deactivated. Contact an administrator.",
+            "Your account is pending approval. Please wait for an administrator to approve your registration.",
         },
         { status: 403 },
       );

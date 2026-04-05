@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/app/lib/db";
 import { users } from "@/app/lib/db/schema";
-import { desc, sql, or, ilike } from "drizzle-orm";
+import { desc, sql, or, ilike, eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 
 export async function GET(req: Request) {
   try {
@@ -55,6 +56,60 @@ export async function GET(req: Request) {
     });
   } catch (error: any) {
     console.error("Error fetching users:", error);
+    return NextResponse.json(
+      { message: error.message || "Internal server error" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const { firstName, lastName, middleName, email, role } = await req.json();
+
+    if (!firstName || !lastName || !email) {
+      return NextResponse.json(
+        { message: "Missing required fields" },
+        { status: 400 },
+      );
+    }
+
+    // Check if user already exists
+    const [existingUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+
+    if (existingUser) {
+      return NextResponse.json(
+        { message: "User with this email already exists" },
+        { status: 400 },
+      );
+    }
+
+    const defaultPassword = "welcome@123";
+    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        firstName,
+        lastName,
+        middleName: middleName || null,
+        email,
+        password: hashedPassword,
+        role: role || "User",
+        isActive: true,
+      })
+      .returning();
+
+    return NextResponse.json({
+      message: "User created successfully",
+      user: newUser,
+    });
+  } catch (error: any) {
+    console.error("Error creating user:", error);
     return NextResponse.json(
       { message: error.message || "Internal server error" },
       { status: 500 },

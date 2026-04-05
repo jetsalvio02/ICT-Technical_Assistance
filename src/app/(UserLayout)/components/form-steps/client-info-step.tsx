@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/app/lib/auth/auth-context";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FieldGroup, Field, FieldLabel } from "@/components/ui/field";
@@ -36,6 +37,7 @@ interface ClientInfoStepProps {
 }
 
 export function ClientInfoStep({ data, onInputChange }: ClientInfoStepProps) {
+  const { user, updateUser } = useAuth();
   const queryClient = useQueryClient();
   const [openDistrictDialog, setOpenDistrictDialog] = useState(false);
   const [openOfficeDialog, setOpenOfficeDialog] = useState(false);
@@ -111,14 +113,24 @@ export function ClientInfoStep({ data, onInputChange }: ClientInfoStepProps) {
     },
     onSuccess: (newItem) => {
       queryClient.invalidateQueries({ queryKey: ["offices"] });
+      onInputChange("district", newItem.districtId);
       onInputChange("office", newItem.id);
+
+      // Auto-save to profile
+      if (user && user.officeId !== newItem.id) {
+        updateProfileMutation.mutate({
+          officeId: newItem.id,
+          districtId: newItem.districtId,
+        });
+      }
+
       // Auto-fill contact info
       onInputChange("schoolHead", newItem.schoolHead || "");
       onInputChange("schoolHeadContact", newItem.schoolHeadContact || "");
       onInputChange("ictCoordinator", newItem.ictCoordinator || "");
       onInputChange(
         "ictCoordinatorContact",
-        newItem.ictCoordinatorContact || "",
+        newItem.ictCoordinatorContact || ""
       );
 
       setOpenOfficeDialog(false);
@@ -137,15 +149,69 @@ export function ClientInfoStep({ data, onInputChange }: ClientInfoStepProps) {
     },
   });
 
+  const updateProfileMutation = useMutation({
+    mutationFn: async (payload: {
+      officeId?: string | null;
+      districtId?: string;
+    }) => {
+      if (!user) return;
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Failed to update profile");
+      return res.json();
+    },
+    onSuccess: (_data, payload) => {
+      // Update the in-memory user so auto-fill works on next appointment
+      updateUser(payload);
+    },
+  });
+
   // Filter offices based on selected district if needed, or just show all
   const filteredOffices = (offices || []).filter(
-    (o) => !data.district || o.districtId === data.district,
+    (o) => !data.district || o.districtId === data.district
   );
 
   const selectedDistrictName = districts?.find(
-    (d) => d.id === data.district,
+    (d) => d.id === data.district
   )?.name;
   const selectedOfficeName = offices?.find((o) => o.id === data.office)?.name;
+
+  // Auto-fill from profile when component mounts
+  useEffect(() => {
+    if (
+      !data.district &&
+      !data.office &&
+      districts &&
+      offices &&
+      districts.length > 0 &&
+      offices.length > 0
+    ) {
+      if (user?.officeId) {
+        const userOffice = offices.find((o) => o.id === user.officeId);
+        if (userOffice) {
+          onInputChange("district", userOffice.districtId);
+          onInputChange("office", userOffice.id);
+
+          // Auto-fill contact info
+          onInputChange("schoolHead", userOffice.schoolHead || "");
+          onInputChange(
+            "schoolHeadContact",
+            userOffice.schoolHeadContact || ""
+          );
+          onInputChange("ictCoordinator", userOffice.ictCoordinator || "");
+          onInputChange(
+            "ictCoordinatorContact",
+            userOffice.ictCoordinatorContact || ""
+          );
+        }
+      } else if (user?.districtId) {
+        onInputChange("district", user.districtId);
+      }
+    }
+  }, [user, districts, offices, data.district, data.office, onInputChange]);
 
   return (
     <div className="space-y-6">
@@ -211,7 +277,10 @@ export function ClientInfoStep({ data, onInputChange }: ClientInfoStepProps) {
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-full p-0" align="start">
+              <PopoverContent
+                className="w-[--radix-popover-trigger-width] p-0"
+                align="start"
+              >
                 <Command>
                   <CommandInput placeholder="Search district or cluster..." />
                   <CommandList>
@@ -222,7 +291,30 @@ export function ClientInfoStep({ data, onInputChange }: ClientInfoStepProps) {
                           key={d.id}
                           value={d.name}
                           onSelect={() => {
+                            const isDistrictChanged = data.district !== d.id;
                             onInputChange("district", d.id);
+
+                            if (isDistrictChanged) {
+                              onInputChange("office", "");
+                              onInputChange("schoolHead", "");
+                              onInputChange("schoolHeadContact", "");
+                              onInputChange("ictCoordinator", "");
+                              onInputChange("ictCoordinatorContact", "");
+                            }
+
+                            if (
+                              user &&
+                              (user.districtId !== d.id ||
+                                (isDistrictChanged && user.officeId))
+                            ) {
+                              updateProfileMutation.mutate({
+                                districtId: d.id,
+                                officeId: isDistrictChanged
+                                  ? null
+                                  : user.officeId || undefined,
+                              });
+                            }
+
                             setOpenDistrictPopover(false);
                           }}
                         >
@@ -231,15 +323,16 @@ export function ClientInfoStep({ data, onInputChange }: ClientInfoStepProps) {
                               "mr-2 h-4 w-4",
                               data.district === d.id
                                 ? "opacity-100"
-                                : "opacity-0",
+                                : "opacity-0"
                             )}
                           />
-                          {d.name} ({d.type})
+                          {d.name}
+                          {/* ({d.type}) */}
                         </CommandItem>
                       ))}
                     </CommandGroup>
                     <CommandSeparator />
-                    <CommandGroup>
+                    {/* <CommandGroup>
                       <CommandItem
                         onSelect={() => {
                           setOpenDistrictDialog(true);
@@ -250,7 +343,7 @@ export function ClientInfoStep({ data, onInputChange }: ClientInfoStepProps) {
                         <Plus className="mr-2 h-4 w-4" />
                         Add New District/Cluster
                       </CommandItem>
-                    </CommandGroup>
+                    </CommandGroup> */}
                   </CommandList>
                 </Command>
               </PopoverContent>
@@ -276,12 +369,15 @@ export function ClientInfoStep({ data, onInputChange }: ClientInfoStepProps) {
                   {data.office
                     ? selectedOfficeName
                     : data.district
-                      ? "Select office or school..."
-                      : "Select district first"}
+                    ? "Select office or school..."
+                    : "Select district first"}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-full p-0" align="start">
+              <PopoverContent
+                className="w-[--radix-popover-trigger-width] p-0"
+                align="start"
+              >
                 <Command>
                   <CommandInput placeholder="Search office or school..." />
                   <CommandList>
@@ -293,25 +389,38 @@ export function ClientInfoStep({ data, onInputChange }: ClientInfoStepProps) {
                           value={o.name}
                           onSelect={() => {
                             onInputChange("office", o.id);
+
+                            // Auto-save to profile if first time or changed
+                            if (
+                              user &&
+                              (user.officeId !== o.id ||
+                                user.districtId !== o.districtId)
+                            ) {
+                              updateProfileMutation.mutate({
+                                officeId: o.id,
+                                districtId: o.districtId,
+                              });
+                            }
+
                             const selectedOffice = offices?.find(
-                              (of) => of.id === o.id,
+                              (of) => of.id === o.id
                             );
                             if (selectedOffice) {
                               onInputChange(
                                 "schoolHead",
-                                selectedOffice.schoolHead || "",
+                                selectedOffice.schoolHead || ""
                               );
                               onInputChange(
                                 "schoolHeadContact",
-                                selectedOffice.schoolHeadContact || "",
+                                selectedOffice.schoolHeadContact || ""
                               );
                               onInputChange(
                                 "ictCoordinator",
-                                selectedOffice.ictCoordinator || "",
+                                selectedOffice.ictCoordinator || ""
                               );
                               onInputChange(
                                 "ictCoordinatorContact",
-                                selectedOffice.ictCoordinatorContact || "",
+                                selectedOffice.ictCoordinatorContact || ""
                               );
                             }
                             setOpenOfficePopover(false);
@@ -320,9 +429,7 @@ export function ClientInfoStep({ data, onInputChange }: ClientInfoStepProps) {
                           <Check
                             className={cn(
                               "mr-2 h-4 w-4",
-                              data.office === o.id
-                                ? "opacity-100"
-                                : "opacity-0",
+                              data.office === o.id ? "opacity-100" : "opacity-0"
                             )}
                           />
                           {o.name} ({o.type})
@@ -330,7 +437,7 @@ export function ClientInfoStep({ data, onInputChange }: ClientInfoStepProps) {
                       ))}
                     </CommandGroup>
                     <CommandSeparator />
-                    <CommandGroup>
+                    {/* <CommandGroup>
                       <CommandItem
                         onSelect={() => {
                           setNewOffice((prev) => ({
@@ -345,7 +452,7 @@ export function ClientInfoStep({ data, onInputChange }: ClientInfoStepProps) {
                         <Plus className="mr-2 h-4 w-4" />
                         Add New Office/School
                       </CommandItem>
-                    </CommandGroup>
+                    </CommandGroup> */}
                   </CommandList>
                 </Command>
               </PopoverContent>

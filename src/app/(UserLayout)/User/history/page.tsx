@@ -127,9 +127,9 @@ export default function HistoryPage() {
                     <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">
                       {request.requestNumber}
                     </span>
-                    <Badge variant="outline" className="text-xs">
+                    {/* <Badge variant="outline" className="text-xs">
                       {request.priority}
-                    </Badge>
+                    </Badge> */}
                   </div>
                   <h3 className="text-lg font-semibold text-foreground mb-2">
                     {request.problemDescription}

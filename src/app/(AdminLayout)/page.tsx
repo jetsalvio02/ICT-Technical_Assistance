@@ -254,7 +254,7 @@ const Dashboard = () => {
               )}
             </DashboardCard>
           </Grid>
-          <Grid size={{ xs: 12, lg: 4 }}>
+          {/* <Grid size={{ xs: 12, lg: 4 }}>
             <DashboardCard title="By Priority">
               {isStatsLoading ? (
                 <Skeleton variant="rectangular" height={300} />
@@ -314,7 +314,7 @@ const Dashboard = () => {
                 </Stack>
               )}
             </DashboardCard>
-          </Grid>
+          </Grid> */}
         </Grid>
 
         {/* Recent Requests Table */}
@@ -322,14 +322,14 @@ const Dashboard = () => {
           {isRequestsLoading ? (
             <Skeleton variant="rectangular" height={300} />
           ) : (
-            <TableContainer component={Paper} elevation={0}>
+            <TableContainer component={Paper} elevation={0} sx={{ overflowX: "auto" }}>
               <Table>
                 <TableHead>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 700 }}>Request #</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Description</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Requester</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Priority</TableCell>
+                    <TableCell sx={{ fontWeight: 700, display: { xs: "none", md: "table-cell" } }}>Description</TableCell>
+                    <TableCell sx={{ fontWeight: 700, display: { xs: "none", sm: "table-cell" } }}>Requester</TableCell>
+                    <TableCell sx={{ fontWeight: 700, display: { xs: "none", lg: "table-cell" } }}>Priority</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
                   </TableRow>
@@ -355,7 +355,7 @@ const Dashboard = () => {
                             {req.requestNumber}
                           </Typography>
                         </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>
                           <Typography
                             variant="body2"
                             sx={{
@@ -368,14 +368,14 @@ const Dashboard = () => {
                             {req.problemDescription}
                           </Typography>
                         </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
                           <Typography variant="body2">
                             {req.requester
                               ? `${req.requester.firstName} ${req.requester.lastName}`
                               : "—"}
                           </Typography>
                         </TableCell>
-                        <TableCell>{getPriorityChip(req.priority)}</TableCell>
+                        <TableCell sx={{ display: { xs: "none", lg: "table-cell" } }}>{getPriorityChip(req.priority)}</TableCell>
                         <TableCell>{getStatusChip(req.status)}</TableCell>
                         <TableCell>
                           <Typography variant="body2" color="textSecondary">

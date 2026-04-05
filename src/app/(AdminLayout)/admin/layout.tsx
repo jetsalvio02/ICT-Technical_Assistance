@@ -90,6 +90,7 @@ export default function RootLayout({
           sx={{
             paddingTop: "20px",
             maxWidth: "1200px",
+            px: { xs: 1, sm: 2, lg: 3 },
           }}
         >
           {/* ------------------------------------------- */}

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/app/lib/auth/auth-context";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ClientInfoStep } from "@/components/form-steps/client-info-step";
 import { ProblemDescriptionStep } from "@/components/form-steps/problem-description-step";
 import { NatureOfRequestStep } from "@/components/form-steps/nature-of-request-step";
@@ -12,6 +12,7 @@ import { StepIndicator } from "@/components/step-indicator";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface FormData {
   // Client Information
@@ -59,10 +60,13 @@ const STEPS = [
 ];
 
 export default function AppointmentForm() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editRequestId = searchParams.get("edit");
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(!!editRequestId);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>({
     firstName: user?.firstName || "",
@@ -91,7 +95,99 @@ export default function AppointmentForm() {
     }));
   };
 
+  useEffect(() => {
+    if (!user) return;
+    setFormData((prev) => ({
+      ...prev,
+      firstName: prev.firstName || user.firstName || "",
+      lastName: prev.lastName || user.lastName || "",
+    }));
+  }, [user]);
+
+  useEffect(() => {
+    if (!editRequestId) return;
+
+    async function fetchRequest() {
+      try {
+        const res = await fetch(`/api/service-requests/${editRequestId}`);
+        if (res.ok) {
+          const data = await res.json();
+          const mappedData: Partial<FormData> = {
+            firstName: data.requester?.firstName || "",
+            lastName: data.requester?.lastName || "",
+            office: data.officeId || "",
+            district: data.districtId || "",
+            schoolHead: data.schoolHead || "",
+            schoolHeadContact: data.schoolHeadContact || "",
+            ictCoordinator: data.ictCoordinator || "",
+            ictCoordinatorContact: data.ictCoordinatorContact || "",
+            depEdEmail: data.depEdEmail || "",
+            recoveryPersonalEmail: data.recoveryPersonalEmail || "",
+            recoveryMobileNumber: data.recoveryMobileNumber || "",
+            problemDescription: data.problemDescription || "",
+            dateOfRequest: data.dateOfRequest
+              ? new Date(data.dateOfRequest).toISOString().split("T")[0]
+              : new Date().toISOString().split("T")[0],
+            timeOfRequest: data.timeOfRequest || "",
+            itemDescription: data.findings?.[0]?.itemDescription || "",
+            serialNumber: data.findings?.[0]?.serialNumber || "",
+            problemIssue: data.findings?.[0]?.problemIssue || "",
+            status: data.findings?.[0]?.status || "",
+            actionTaken: data.findings?.[0]?.actionTaken || "",
+          };
+
+          // Map categories
+          if (data.categories && Array.isArray(data.categories)) {
+            data.categories.forEach((cat: any) => {
+              if (cat.categoryType === "hardware")
+                mappedData.hardwareType = cat.subCategory;
+              if (cat.categoryType === "software")
+                mappedData.softwareType = cat.subCategory;
+              if (cat.categoryType === "network")
+                mappedData.networkType = cat.subCategory;
+              if (cat.categoryType === "other") {
+                const otherOptions = ["dcp"];
+                if (otherOptions.includes(cat.subCategory)) {
+                  mappedData.otherType = cat.subCategory;
+                } else {
+                  mappedData.otherType = "other";
+                  mappedData.otherCustom = cat.subCategory;
+                }
+              }
+            });
+          }
+
+          setFormData((prev) => ({ ...prev, ...mappedData }));
+        }
+      } catch (error) {
+        console.error("Error fetching request for edit:", error);
+        toast.error("Failed to load request data");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchRequest();
+  }, [editRequestId]);
+
   const handleNext = () => {
+    // Validate step 1 required fields
+    if (currentStep === 1) {
+      const missing = [];
+      if (!formData.firstName) missing.push("First Name");
+      if (!formData.lastName) missing.push("Last Name");
+      if (!formData.district) missing.push("District/Cluster");
+      if (!formData.office) missing.push("Office/School");
+      // if (!formData.timeOfRequest) missing.push("Time of Request");
+      // if (!formData.schoolHead) missing.push("School Head");
+      // if (!formData.schoolHeadContact) missing.push("School Head Contact");
+      // if (!formData.ictCoordinator) missing.push("ICT Coordinator");
+      // if (!formData.ictCoordinatorContact) missing.push("ICT Coordinator Contact");
+      if (missing.length > 0) {
+        toast.error(`Please fill in: ${missing.join(", ")}`);
+        return;
+      }
+    }
     if (currentStep < STEPS.length) {
       setCurrentStep(currentStep + 1);
     }
@@ -163,18 +259,47 @@ export default function AppointmentForm() {
             : undefined,
       };
 
-      const response = await fetch("/api/service-requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const response = await fetch(
+        editRequestId
+          ? `/api/service-requests/${editRequestId}`
+          : "/api/service-requests",
+        {
+          method: editRequestId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
 
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.message || "Failed to submit request");
       }
 
-      router.push("/User/history");
+      toast.success(
+        editRequestId
+          ? "Request updated successfully"
+          : "Request submitted successfully",
+      );
+
+      if (formData.office || formData.district) {
+        const profileUpdateRes = await fetch(`/api/users/${user.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            officeId: formData.office || null,
+            districtId: formData.district || null,
+          }),
+        });
+
+        if (profileUpdateRes.ok) {
+          updateUser({
+            officeId: formData.office || null,
+            districtId: formData.district || null,
+          });
+        }
+      }
+
+      router.push("/User/requests");
     } catch (error: any) {
       setSubmitError(error.message || "Failed to submit. Please try again.");
     } finally {
@@ -219,11 +344,12 @@ export default function AppointmentForm() {
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
-            Create New Appointment
+            {editRequestId ? "Edit Request" : "Create New Appointment"}
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground">
-            Fill in the details below to schedule your ICT technical assistance
-            appointment.
+            {editRequestId
+              ? "Update the details of your service request below."
+              : "Fill in the details below to schedule your ICT technical assistance appointment."}
           </p>
         </div>
 
@@ -232,7 +358,18 @@ export default function AppointmentForm() {
 
         {/* Form Card */}
         <Card className="mt-6 sm:mt-8 shadow-lg border-2 border-border">
-          <div className="p-4 sm:p-6 md:p-8">{renderStep()}</div>
+          <div className="p-4 sm:p-6 md:p-8">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <span className="ml-3 text-muted-foreground">
+                  Loading request details...
+                </span>
+              </div>
+            ) : (
+              renderStep()
+            )}
+          </div>
 
           {/* Error Message */}
           {submitError && (

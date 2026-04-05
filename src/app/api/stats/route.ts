@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/app/lib/db";
 import { serviceRequests, users } from "@/app/lib/db/schema";
-import { eq, sql, and } from "drizzle-orm";
+import { eq, sql, and, desc } from "drizzle-orm";
+import { districts, offices } from "@/app/lib/db/schema";
 
 export async function GET(req: Request) {
   try {
@@ -38,6 +39,31 @@ export async function GET(req: Request) {
       .from(serviceRequests)
       .where(userCondition)
       .groupBy(serviceRequests.priority);
+
+    // Count by District
+    const districtCounts = await db
+      .select({
+        name: districts.name,
+        count: sql<number>`count(*)`,
+      })
+      .from(serviceRequests)
+      .innerJoin(districts, eq(serviceRequests.districtId, districts.id))
+      .where(userCondition)
+      .groupBy(districts.name)
+      .orderBy(desc(sql<number>`count(*)`));
+
+    // Count by Office/School
+    const officeCounts = await db
+      .select({
+        name: sql<string>`concat(${offices.name}, ' (', ${districts.name}, ')')`,
+        count: sql<number>`count(*)`,
+      })
+      .from(serviceRequests)
+      .innerJoin(offices, eq(serviceRequests.officeId, offices.id))
+      .innerJoin(districts, eq(serviceRequests.districtId, districts.id))
+      .where(userCondition)
+      .groupBy(offices.name, districts.name)
+      .orderBy(desc(sql<number>`count(*)`));
 
     // Monthly statistics (last 6 months)
     const monthlyCounts = await db
@@ -80,6 +106,14 @@ export async function GET(req: Request) {
       totalUsers,
       byStatus,
       byPriority,
+      byDistrict: districtCounts.map((d) => ({
+        name: d.name,
+        count: Number(d.count),
+      })),
+      byOffice: officeCounts.map((o) => ({
+        name: o.name,
+        count: Number(o.count),
+      })),
       monthly: monthlyCounts.map((m) => ({
         month: m.month,
         count: Number(m.count),

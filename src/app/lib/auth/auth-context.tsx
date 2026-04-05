@@ -9,6 +9,7 @@ export interface User {
   email: string;
   office: string;
   officeId: string | null;
+  districtId: string | null;
   role: string; // "Admin" or "User"
 }
 
@@ -25,6 +26,7 @@ interface AuthContextType {
     role: string;
   }) => Promise<void>;
   logout: () => void;
+  updateUser: (updates: Partial<User>) => void;
   isAuthenticated: boolean;
 }
 
@@ -56,6 +58,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     fetchUser();
   }, []);
+
+  const updateUser = (updates: Partial<User>) => {
+    setUser((prev) => (prev ? { ...prev, ...updates } : prev));
+  };
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
@@ -128,6 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     register,
     logout,
+    updateUser,
     isAuthenticated: !!user,
   };
 

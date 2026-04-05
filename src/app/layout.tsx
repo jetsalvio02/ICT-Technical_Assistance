@@ -3,8 +3,9 @@ import "./global.css";
 import { Providers } from "./Providers";
 
 export const metadata = {
-  title: "ITA - Information Technology Administration",
-  description: "IT Administration System",
+  title: "ICT Support Technical Assistance",
+  description: "ICT Support Technical Assistance",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
 };
 
 export default function RootLayout({

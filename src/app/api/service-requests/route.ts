@@ -4,6 +4,8 @@ import {
   serviceRequests,
   requestCategories,
   findings,
+  users,
+  notifications,
 } from "@/app/lib/db/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 
@@ -13,10 +15,15 @@ async function generateRequestNumber(): Promise<string> {
   const prefix = `SR-${year}-`;
 
   const [result] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(serviceRequests);
+    .select({ requestNumber: serviceRequests.requestNumber })
+    .from(serviceRequests)
+    .where(sql`${serviceRequests.requestNumber} like ${`${prefix}%`}`)
+    .orderBy(desc(serviceRequests.requestNumber))
+    .limit(1);
 
-  const nextNum = (result?.count ?? 0) + 1;
+  const lastNumberPart = result?.requestNumber?.split("-").pop() || "0";
+  const parsed = Number.parseInt(lastNumberPart, 10);
+  const nextNum = Number.isFinite(parsed) ? parsed + 1 : 1;
   return `${prefix}${String(nextNum).padStart(5, "0")}`;
 }
 
@@ -49,7 +56,17 @@ export async function GET(req: Request) {
           columns: { id: true, firstName: true, lastName: true },
         },
       },
-      orderBy: [desc(serviceRequests.createdAt)],
+      orderBy: [
+        sql`CASE 
+          WHEN ${serviceRequests.status} = 'pending' THEN 1 
+          WHEN ${serviceRequests.status} = 'assigned' THEN 2
+          WHEN ${serviceRequests.status} = 'in_progress' THEN 3
+          WHEN ${serviceRequests.status} = 'completed' THEN 4
+          WHEN ${serviceRequests.status} = 'cancelled' THEN 5
+          ELSE 6 
+        END ASC`,
+        desc(serviceRequests.createdAt),
+      ],
       limit,
       offset,
     });
@@ -72,7 +89,7 @@ export async function GET(req: Request) {
     console.error("Error fetching service requests:", error);
     return NextResponse.json(
       { message: error.message || "Internal server error" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
@@ -99,10 +116,19 @@ export async function POST(req: Request) {
       findingsData,
     } = body;
 
-    if (!requesterId || !problemDescription || !dateOfRequest) {
+    if (
+      !requesterId ||
+      !problemDescription ||
+      !dateOfRequest ||
+      !officeId ||
+      !districtId
+    ) {
       return NextResponse.json(
-        { message: "Missing required fields" },
-        { status: 400 },
+        {
+          message:
+            "Missing required fields. Please make sure District/Cluster and Office/School are selected.",
+        },
+        { status: 400 }
       );
     }
 
@@ -114,8 +140,8 @@ export async function POST(req: Request) {
       .values({
         requestNumber,
         requesterId,
-        officeId: officeId || null,
-        districtId: districtId || null,
+        officeId,
+        districtId,
         schoolHead,
         schoolHeadContact,
         ictCoordinator,
@@ -138,8 +164,8 @@ export async function POST(req: Request) {
             requestId: newRequest.id,
             categoryType: cat.categoryType as any,
             subCategory: cat.subCategory,
-          }),
-        ),
+          })
+        )
       );
     }
 
@@ -151,8 +177,31 @@ export async function POST(req: Request) {
         serialNumber: findingsData.serialNumber,
         problemIssue: findingsData.problemIssue || "N/A",
         status: findingsData.status || null,
+        recommendationDescription:
+          findingsData.recommendationDescription || null,
         actionTaken: findingsData.actionTaken,
       });
+    }
+
+    // Create notifications for admins
+    try {
+      const admins = await db.query.users.findMany({
+        where: eq(users.role, "Administrator"),
+      });
+
+      if (admins.length > 0) {
+        await db.insert(notifications).values(
+          admins.map((admin) => ({
+            userId: admin.id,
+            requestId: newRequest.id,
+            title: "New Service Request",
+            message: `New service request ${requestNumber} has been submitted.`,
+          }))
+        );
+      }
+    } catch (notificationError) {
+      // Log notification error but don't fail the request creation
+      console.error("Error creating notifications:", notificationError);
     }
 
     // Fetch the full request with relations
@@ -169,7 +218,7 @@ export async function POST(req: Request) {
     console.error("Error creating service request:", error);
     return NextResponse.json(
       { message: error.message || "Internal server error" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

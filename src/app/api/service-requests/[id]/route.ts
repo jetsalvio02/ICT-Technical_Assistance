@@ -75,6 +75,20 @@ export async function PATCH(
       if (updateData.status === undefined) updateData.status = "assigned";
     }
     if (body.priority) updateData.priority = body.priority;
+    if (body.problemDescription)
+      updateData.problemDescription = body.problemDescription;
+    if (body.schoolHead !== undefined) updateData.schoolHead = body.schoolHead;
+    if (body.schoolHeadContact !== undefined)
+      updateData.schoolHeadContact = body.schoolHeadContact;
+    if (body.ictCoordinator !== undefined)
+      updateData.ictCoordinator = body.ictCoordinator;
+    if (body.ictCoordinatorContact !== undefined)
+      updateData.ictCoordinatorContact = body.ictCoordinatorContact;
+    if (body.depEdEmail !== undefined) updateData.depEdEmail = body.depEdEmail;
+    if (body.recoveryPersonalEmail !== undefined)
+      updateData.recoveryPersonalEmail = body.recoveryPersonalEmail;
+    if (body.recoveryMobileNumber !== undefined)
+      updateData.recoveryMobileNumber = body.recoveryMobileNumber;
 
     const [updated] = await db
       .update(serviceRequests)
@@ -97,6 +111,8 @@ export async function PATCH(
         serialNumber: body.findingsData.serialNumber || null,
         problemIssue: body.findingsData.problemIssue || "N/A",
         status: body.findingsData.status || null,
+        recommendationDescription:
+          body.findingsData.recommendationDescription || null,
         actionTaken: body.findingsData.actionTaken || null,
       });
     }

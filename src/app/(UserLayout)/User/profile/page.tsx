@@ -23,7 +23,25 @@ import {
   Lock,
   Save,
   X,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 
 interface Office {
   id: string;
@@ -41,11 +59,12 @@ interface District {
 }
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
+  const queryClient = useQueryClient();
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [districts, setDistricts] = useState<District[]>([]);
   const [office, setOffice] = useState<Office | null>(null);
 
   // Form State
@@ -68,19 +87,38 @@ export default function ProfilePage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
+  const [openDistrictPopover, setOpenDistrictPopover] = useState(false);
+  const [openOfficePopover, setOpenOfficePopover] = useState(false);
+  const [selectedDistrictId, setSelectedDistrictId] = useState<string>("");
+  const [selectedOfficeId, setSelectedOfficeId] = useState<string>("");
+  const [profileUserId, setProfileUserId] = useState<string>("");
+
+  const { data: districtsData = [] } = useQuery<District[]>({
+    queryKey: ["districts"],
+    queryFn: async () => {
+      const res = await fetch("/api/districts");
+      if (!res.ok) throw new Error("Failed to fetch districts");
+      return res.json();
+    },
+  });
+
+  const { data: officesData = [] } = useQuery<any[]>({
+    queryKey: ["offices"],
+    queryFn: async () => {
+      const res = await fetch("/api/offices");
+      if (!res.ok) throw new Error("Failed to fetch offices");
+      return res.json();
+    },
+  });
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [districtsRes, userRes] = await Promise.all([
-          fetch("/api/districts"),
-          fetch("/api/auth/me"),
-        ]);
-
-        const districtsData = await districtsRes.json();
-        setDistricts(districtsData);
+        const userRes = await fetch("/api/auth/me");
 
         if (userRes.ok) {
           const userData = await userRes.json();
+          setProfileUserId(userData.id || "");
           setFormData((prev) => ({
             ...prev,
             firstName: userData.firstName || "",
@@ -88,10 +126,12 @@ export default function ProfilePage() {
           }));
 
           if (userData.officeId) {
+            setSelectedOfficeId(userData.officeId);
             const officeRes = await fetch(`/api/offices/${userData.officeId}`);
             if (officeRes.ok) {
               const officeData = await officeRes.json();
               setOffice(officeData);
+              setSelectedDistrictId(officeData.districtId || userData.districtId || "");
               setFormData((prev) => ({
                 ...prev,
                 officeName: officeData.name || "",
@@ -102,6 +142,8 @@ export default function ProfilePage() {
                 ictCoordinatorContact: officeData.ictCoordinatorContact || "",
               }));
             }
+          } else if (userData.districtId) {
+            setSelectedDistrictId(userData.districtId);
           }
         }
       } catch (error) {
@@ -113,7 +155,7 @@ export default function ProfilePage() {
     };
 
     fetchData();
-  }, []);
+  }, [user?.id]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -128,7 +170,11 @@ export default function ProfilePage() {
   };
 
   const handlePasswordChange = async () => {
-    if (!user) return;
+    const targetUserId = user?.id || profileUserId;
+    if (!targetUserId) {
+      toast.error("Unable to identify user");
+      return;
+    }
 
     // Validation
     if (!passwordData.newPassword || !passwordData.confirmPassword) {
@@ -148,7 +194,7 @@ export default function ProfilePage() {
 
     setIsChangingPassword(true);
     try {
-      const res = await fetch(`/api/users/${user.id}`, {
+      const res = await fetch(`/api/users/${targetUserId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -174,79 +220,88 @@ export default function ProfilePage() {
       setIsChangingPassword(false);
     }
   };
-
   const handleSave = async () => {
-    if (!user) return;
+    const targetUserId = user?.id || profileUserId;
+    if (!targetUserId) {
+      toast.error("Unable to identify user");
+      return;
+    }
+
     setIsSaving(true);
     try {
-      // Resolve District ID from Name
-      let districtId = districts.find(
-        (d) => d.name.toLowerCase() === formData.districtName.toLowerCase(),
-      )?.id;
-
-      if (!districtId && formData.districtName) {
-        const newDistrictRes = await fetch("/api/districts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: formData.districtName }),
-        });
-        if (newDistrictRes.ok) {
-          const newDistrict = await newDistrictRes.json();
-          districtId = newDistrict.id;
-        } else {
-          toast.error("Failed to create new district");
-          setIsSaving(false);
-          return;
-        }
-      }
-
-      // Update User Info
-      const userUpdatePromise = fetch(`/api/users/${user.id}`, {
+      const userRes = await fetch(`/api/users/${targetUserId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           firstName: formData.firstName,
           lastName: formData.lastName,
+          officeId: selectedOfficeId || null,
+          districtId: selectedDistrictId || null,
         }),
       });
 
-      // Update Office Info
-      let officeUpdatePromise: Promise<Response | null> = Promise.resolve(null);
-      if (user.officeId) {
-        officeUpdatePromise = fetch(`/api/offices/${user.officeId}`, {
+      if (!userRes.ok) {
+        let errorMessage = "Failed to update profile";
+        try {
+          const error = await userRes.json();
+          errorMessage = error.message || errorMessage;
+        } catch {}
+        throw new Error(errorMessage);
+      }
+
+      if (selectedOfficeId) {
+        const officeRes = await fetch(`/api/offices/${selectedOfficeId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            name: formData.officeName,
-            districtId: districtId,
             schoolHead: formData.schoolHead,
             schoolHeadContact: formData.schoolHeadContact,
             ictCoordinator: formData.ictCoordinator,
             ictCoordinatorContact: formData.ictCoordinatorContact,
           }),
         });
+
+        if (!officeRes.ok) {
+          let errorMessage = "Failed to update office info";
+          try {
+            const error = await officeRes.json();
+            errorMessage = error.message || errorMessage;
+          } catch {}
+          throw new Error(errorMessage);
+        }
       }
 
-      const [userRes, officeRes] = await Promise.all([
-        userUpdatePromise,
-        officeUpdatePromise,
-      ]);
-
-      if (userRes.ok && (!officeRes || officeRes.ok)) {
-        toast.success("Profile updated successfully");
-        setIsEditing(false);
-        // Refresh the page or update local state if needed
-        window.location.reload();
-      } else {
-        toast.error("Failed to update profile");
-      }
+      toast.success("Profile updated successfully");
+      setIsEditing(false);
+      updateUser({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        officeId: selectedOfficeId || null,
+        districtId: selectedDistrictId || null,
+      });
+      queryClient.invalidateQueries({ queryKey: ["offices"] });
+      queryClient.invalidateQueries({ queryKey: ["districts"] });
+      router.refresh();
     } catch (error) {
       console.error("Save error:", error);
-      toast.error("An error occurred while saving");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "An error occurred while saving",
+      );
     } finally {
       setIsSaving(false);
     }
   };
+
+  const filteredOffices = (officesData || []).filter(
+    (o) => !selectedDistrictId || o.districtId === selectedDistrictId,
+  );
+
+  const selectedDistrictName =
+    districtsData?.find((d) => d.id === selectedDistrictId)?.name || "";
+  const selectedOfficeName =
+    officesData?.find((o) => o.id === selectedOfficeId)?.name || "";
 
   if (isLoading) {
     return (
@@ -298,35 +353,115 @@ export default function ProfilePage() {
             />
           </div>
 
-          {/* Office/School */}
-          <div className="md:col-span-2 space-y-2">
-            <Label className="text-sm font-semibold">Office/School *</Label>
-            <Input
-              name="officeName"
-              value={formData.officeName}
-              onChange={handleInputChange}
-              disabled={!isEditing}
-              placeholder="Enter office or school name"
-              // className={!isEditing ? "bg-muted" : ""}
-            />
+          {/* District/Cluster */}
+          <div className="md:col-span-1 space-y-2">
+            <Label className="text-sm font-semibold">District/Cluster *</Label>
+            <Popover
+              open={openDistrictPopover}
+              onOpenChange={setOpenDistrictPopover}
+            >
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={openDistrictPopover}
+                  className="w-full justify-between bg-background border-border font-normal h-11"
+                  disabled={!isEditing}
+                >
+                  {selectedDistrictId ? selectedDistrictName : "Select district..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search district..." />
+                  <CommandList>
+                    <CommandEmpty>No district found.</CommandEmpty>
+                    <CommandGroup>
+                      {districtsData.map((d) => (
+                        <CommandItem
+                          key={d.id}
+                          onSelect={() => {
+                            setSelectedDistrictId(d.id);
+                            setSelectedOfficeId("");
+                            setFormData((prev) => ({
+                              ...prev,
+                              schoolHead: "",
+                              schoolHeadContact: "",
+                              ictCoordinator: "",
+                              ictCoordinatorContact: "",
+                            }));
+                            setOpenDistrictPopover(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedDistrictId === d.id ? "opacity-100" : "opacity-0",
+                            )}
+                          />
+                          {d.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
-          <div className="md:col-span-2 space-y-2">
-            <Label className="text-sm font-semibold">District/Cluster *</Label>
-            <Input
-              name="districtName"
-              list="districts-list"
-              value={formData.districtName}
-              onChange={handleInputChange}
-              disabled={!isEditing}
-              placeholder="Enter district or cluster"
-              // className={!isEditing ? "bg-muted" : ""}
-            />
-            <datalist id="districts-list">
-              {districts.map((d) => (
-                <option key={d.id} value={d.name} />
-              ))}
-            </datalist>
+          {/* Office/School */}
+          <div className="md:col-span-1 space-y-2">
+            <Label className="text-sm font-semibold">Office/School *</Label>
+            <Popover open={openOfficePopover} onOpenChange={setOpenOfficePopover}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={openOfficePopover}
+                  className="w-full justify-between bg-background border-border font-normal h-11"
+                  disabled={!isEditing || !selectedDistrictId}
+                >
+                  {selectedOfficeId ? selectedOfficeName : (selectedDistrictId ? "Select office..." : "Select district first")}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search office..." />
+                  <CommandList>
+                    <CommandEmpty>No office found.</CommandEmpty>
+                    <CommandGroup>
+                      {filteredOffices.map((o) => (
+                        <CommandItem
+                          key={o.id}
+                          onSelect={() => {
+                            setSelectedOfficeId(o.id);
+                            // Auto-fill form data from selected office
+                            setFormData(prev => ({
+                              ...prev,
+                              schoolHead: o.schoolHead || "",
+                              schoolHeadContact: o.schoolHeadContact || "",
+                              ictCoordinator: o.ictCoordinator || "",
+                              ictCoordinatorContact: o.ictCoordinatorContact || "",
+                            }));
+                            setOpenOfficePopover(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedOfficeId === o.id ? "opacity-100" : "opacity-0",
+                            )}
+                          />
+                          {o.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* School Head */}

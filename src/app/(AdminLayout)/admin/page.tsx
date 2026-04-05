@@ -36,6 +36,8 @@ interface Stats {
   totalUsers: number;
   byStatus: Record<string, number>;
   byPriority: Record<string, number>;
+  byDistrict?: { name: string; count: number }[];
+  byOffice?: { name: string; count: number }[];
   monthly: { month: string; count: number }[];
 }
 
@@ -154,7 +156,7 @@ const Dashboard = () => {
     chart: {
       type: "bar",
       fontFamily: "'Plus Jakarta Sans', sans-serif",
-      foreColor: "#adb0bb",
+      foreColor: "#000",
       toolbar: { show: true },
       height: 300,
     },
@@ -188,6 +190,66 @@ const Dashboard = () => {
     {
       name: "Requests",
       data: stats?.monthly?.map((m) => m.count) || [],
+    },
+  ];
+
+  // Chart config for District requests
+  const districtChartOptions: any = {
+    chart: {
+      type: "bar",
+      fontFamily: "'Plus Jakarta Sans', sans-serif",
+      foreColor: "#000",
+      toolbar: { show: true },
+      height: 350,
+    },
+    colors: [theme.palette.info.main],
+    plotOptions: {
+      bar: {
+        borderRadius: 4,
+        horizontal: true,
+      },
+    },
+    dataLabels: { enabled: true, style: { colors: ["#000"] } },
+    xaxis: {
+      categories: stats?.byDistrict?.map((d) => d.name) || [],
+    },
+    tooltip: { theme: "dark" },
+  };
+
+  const districtChartSeries = [
+    {
+      name: "Requests",
+      data: stats?.byDistrict?.map((d) => d.count) || [],
+    },
+  ];
+
+  // Chart config for Office requests
+  const officeChartOptions: any = {
+    chart: {
+      type: "bar",
+      fontFamily: "'Plus Jakarta Sans', sans-serif",
+      foreColor: "#000",
+      toolbar: { show: true },
+      height: 450,
+    },
+    colors: [theme.palette.success.main],
+    plotOptions: {
+      bar: {
+        borderRadius: 4,
+        horizontal: true,
+      },
+    },
+    dataLabels: { enabled: true, style: { colors: ["#000"] } },
+    xaxis: {
+      categories: stats?.byOffice?.map((o) => o.name) || [],
+    },
+    tooltip: { theme: "dark" },
+  };
+
+  const officeChartSeries = [
+    {
+      name: "Requests",
+      data: stats?.byOffice?.map((o) => o.count) || [],
     },
   ];
 
@@ -238,9 +300,43 @@ const Dashboard = () => {
           ))}
         </Grid>
 
+        {/* District and Office Charts */}
+        <Grid container spacing={3} sx={{ mb: 3 }}>
+          <Grid size={{ xs: 12, lg: 6 }}>
+            <DashboardCard title="Requests by District/Cluster">
+              {isLoading ? (
+                <Skeleton variant="rectangular" height={350} />
+              ) : (
+                <Chart
+                  options={districtChartOptions}
+                  series={districtChartSeries}
+                  type="bar"
+                  height={350}
+                  width="100%"
+                />
+              )}
+            </DashboardCard>
+          </Grid>
+          <Grid size={{ xs: 12, lg: 6 }}>
+            <DashboardCard title="Requests by Office/School">
+              {isLoading ? (
+                <Skeleton variant="rectangular" height={450} />
+              ) : (
+                <Chart
+                  options={officeChartOptions}
+                  series={officeChartSeries}
+                  type="bar"
+                  height={450}
+                  width="100%"
+                />
+              )}
+            </DashboardCard>
+          </Grid>
+        </Grid>
+
         {/* Monthly Chart */}
         <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid size={{ xs: 12, lg: 8 }}>
+          <Grid size={{ xs: 12 }}>
             <DashboardCard title="Monthly Request Volume">
               {isLoading ? (
                 <Skeleton variant="rectangular" height={300} />
@@ -255,67 +351,6 @@ const Dashboard = () => {
               )}
             </DashboardCard>
           </Grid>
-          <Grid size={{ xs: 12, lg: 4 }}>
-            <DashboardCard title="By Priority">
-              {isLoading ? (
-                <Skeleton variant="rectangular" height={300} />
-              ) : (
-                <Stack spacing={2} sx={{ mt: 1 }}>
-                  {["critical", "high", "medium", "low"].map((p) => {
-                    const count = stats?.byPriority?.[p] ?? 0;
-                    const total = stats?.totalRequests ?? 1;
-                    const pct =
-                      total > 0 ? Math.round((count / total) * 100) : 0;
-                    return (
-                      <Box key={p}>
-                        <Stack
-                          direction="row"
-                          justifyContent="space-between"
-                          mb={0.5}
-                        >
-                          <Typography
-                            variant="body2"
-                            fontWeight={600}
-                            sx={{ textTransform: "capitalize" }}
-                          >
-                            {p}
-                          </Typography>
-                          <Typography variant="body2" color="textSecondary">
-                            {count} ({pct}%)
-                          </Typography>
-                        </Stack>
-                        <Box
-                          sx={{
-                            height: 8,
-                            borderRadius: 4,
-                            bgcolor: "grey.200",
-                            overflow: "hidden",
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              height: "100%",
-                              width: `${pct}%`,
-                              borderRadius: 4,
-                              bgcolor:
-                                p === "critical"
-                                  ? "error.main"
-                                  : p === "high"
-                                    ? "warning.main"
-                                    : p === "medium"
-                                      ? "info.main"
-                                      : "success.main",
-                              transition: "width 0.5s ease",
-                            }}
-                          />
-                        </Box>
-                      </Box>
-                    );
-                  })}
-                </Stack>
-              )}
-            </DashboardCard>
-          </Grid>
         </Grid>
 
         {/* Recent Requests Table */}
@@ -323,14 +358,14 @@ const Dashboard = () => {
           {isLoading ? (
             <Skeleton variant="rectangular" height={300} />
           ) : (
-            <TableContainer component={Paper} elevation={0}>
+            <TableContainer component={Paper} elevation={0} sx={{ overflowX: "auto" }}>
               <Table>
                 <TableHead>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 700 }}>Request #</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Description</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Requester</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Priority</TableCell>
+                    <TableCell sx={{ fontWeight: 700, display: { xs: "none", md: "table-cell" } }}>Description</TableCell>
+                    <TableCell sx={{ fontWeight: 700, display: { xs: "none", sm: "table-cell" } }}>Requester</TableCell>
+                    {/* <TableCell sx={{ fontWeight: 700 }}>Priority</TableCell> */}
                     <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
                   </TableRow>
@@ -356,7 +391,7 @@ const Dashboard = () => {
                             {req.requestNumber}
                           </Typography>
                         </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>
                           <Typography
                             variant="body2"
                             sx={{
@@ -369,14 +404,14 @@ const Dashboard = () => {
                             {req.problemDescription}
                           </Typography>
                         </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
                           <Typography variant="body2">
                             {req.requester
                               ? `${req.requester.firstName} ${req.requester.lastName}`
                               : "—"}
                           </Typography>
                         </TableCell>
-                        <TableCell>{getPriorityChip(req.priority)}</TableCell>
+                        {/* <TableCell>{getPriorityChip(req.priority)}</TableCell> */}
                         <TableCell>{getStatusChip(req.status)}</TableCell>
                         <TableCell>
                           <Typography variant="body2" color="textSecondary">

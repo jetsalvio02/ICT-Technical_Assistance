@@ -20,6 +20,7 @@ export async function GET(
         email: users.email,
         phone: users.phone,
         officeId: users.officeId,
+        districtId: users.districtId,
         role: users.role,
         isActive: users.isActive,
         lastLoginAt: users.lastLoginAt,
@@ -57,8 +58,11 @@ export async function PATCH(
     if (body.isActive !== undefined) updateData.isActive = body.isActive;
     if (body.firstName !== undefined) updateData.firstName = body.firstName;
     if (body.lastName !== undefined) updateData.lastName = body.lastName;
+    if (body.middleName !== undefined) updateData.middleName = body.middleName;
+    if (body.email !== undefined) updateData.email = body.email;
     if (body.phone !== undefined) updateData.phone = body.phone;
     if (body.officeId !== undefined) updateData.officeId = body.officeId;
+    if (body.districtId !== undefined) updateData.districtId = body.districtId;
 
     if (body.password !== undefined && body.password !== "") {
       // For security, if currentPassword is provided, verify it

@@ -23,7 +23,11 @@ export async function proxy(request: NextRequest) {
   }
 
   // 2. Allow public auth API routes without session
-  if (pathname === "/api/auth/login" || pathname === "/api/auth/register") {
+  if (
+    pathname === "/api/auth/login" ||
+    pathname === "/api/auth/register" ||
+    pathname === "/api/admin/settings"
+  ) {
     return NextResponse.next();
   }
 
@@ -69,12 +73,18 @@ export async function proxy(request: NextRequest) {
       );
       const { payload } = await jwtVerify(session, secret);
       const role = payload.role as string;
+      const userId = payload.id as string | undefined;
 
-      // 5. Admin-only check for /admin pages and sensitive /api/admin/* or /api/users/*
+      // 5. Admin-only check for /admin pages and sensitive APIs
+      const isUsersApiRoute = pathname.startsWith("/api/users");
+      const isOwnUserApiRoute =
+        !!userId &&
+        pathname === `/api/users/${userId}` &&
+        (request.method === "GET" || request.method === "PATCH");
       const isAdminRoute =
         pathname.startsWith("/admin") ||
         pathname.startsWith("/api/admin") ||
-        pathname.startsWith("/api/users");
+        (isUsersApiRoute && !isOwnUserApiRoute);
 
       if (isAdminRoute && !(role === "Administrator" || role === "Admin")) {
         if (isApiRoute) {

@@ -26,7 +26,7 @@ const Register2 = () => (
         container
         spacing={0}
         justifyContent="center"
-        sx={{ height: "100vh" }}
+        sx={{ minHeight: "100vh", py: 6 }}
       >
         <Grid
           display="flex"
@@ -35,13 +35,13 @@ const Register2 = () => (
           size={{
             xs: 12,
             sm: 12,
-            lg: 4,
-            xl: 3,
+            lg: 6,
+            xl: 4,
           }}
         >
           <Card
             elevation={9}
-            sx={{ p: 4, zIndex: 1, width: "100%", maxWidth: "500px" }}
+            sx={{ p: 4, zIndex: 1, width: "100%", maxWidth: "750px" }}
           >
             <Box display="flex" alignItems="center" justifyContent="center">
               <Logo />

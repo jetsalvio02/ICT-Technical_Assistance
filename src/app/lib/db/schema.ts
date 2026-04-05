@@ -59,6 +59,18 @@ export const settings = pgTable("settings", {
 export type Setting = typeof settings.$inferSelect;
 export type NewSetting = typeof settings.$inferInsert;
 
+export const systemSettings = pgTable("system_settings", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  infoOfficerId: uuid("info_officer_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  facebookLink: text("facebook_link"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // ─────────────────────────────────────────────
 // 1. Users
 // ─────────────────────────────────────────────
@@ -75,6 +87,7 @@ export const users = pgTable("users", {
   phone: text("phone"),
   avatarUrl: text("avatar_url"),
   officeId: uuid("office_id"),
+  districtId: uuid("district_id").references(() => districts.id),
   role: userRoleEnum("role").notNull().default("User"),
   isActive: boolean("is_active").notNull().default(true),
   lastLoginAt: timestamp("last_login_at"),
@@ -141,7 +154,7 @@ export const serviceRequests = pgTable("service_requests", {
     .default(sql`gen_random_uuid()`),
   requestNumber: text("request_number").notNull().unique(),
   requesterId: uuid("requester_id")
-    .references(() => users.id)
+    .references(() => users.id, { onDelete: "cascade" })
     .notNull(),
   officeId: uuid("office_id")
     .references(() => offices.id)
@@ -167,7 +180,9 @@ export const serviceRequests = pgTable("service_requests", {
   timeOfRequest: text("time_of_request"),
   status: requestStatusEnum("status").notNull().default("pending"),
   priority: priorityEnum("priority").notNull().default("medium"),
-  assignedToId: uuid("assigned_to_id").references(() => users.id),
+  assignedToId: uuid("assigned_to_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
   assignedAt: timestamp("assigned_at"),
   completedAt: timestamp("completed_at"),
   cancelledAt: timestamp("cancelled_at"),
@@ -210,11 +225,14 @@ export const findings = pgTable("findings", {
   requestId: uuid("request_id")
     .references(() => serviceRequests.id, { onDelete: "cascade" })
     .notNull(),
-  technicianId: uuid("technician_id").references(() => users.id),
+  technicianId: uuid("technician_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
   itemDescription: text("item_description").notNull(),
   serialNumber: text("serial_number"),
   problemIssue: text("problem_issue").notNull(),
   status: findingStatusEnum("status"),
+  recommendationDescription: text("recommendation_description"),
   actionTaken: text("action_taken"),
   inspectedAt: timestamp("inspected_at").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -261,7 +279,9 @@ export const auditLog = pgTable("audit_log", {
   action: text("action").notNull(),
   oldValues: text("old_values"),
   newValues: text("new_values"),
-  performedBy: uuid("performed_by").references(() => users.id),
+  performedBy: uuid("performed_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
   ipAddress: text("ip_address"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -277,6 +297,10 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   office: one(offices, {
     fields: [users.officeId],
     references: [offices.id],
+  }),
+  district: one(districts, {
+    fields: [users.districtId],
+    references: [districts.id],
   }),
   submittedRequests: many(serviceRequests, { relationName: "requester" }),
   assignedRequests: many(serviceRequests, { relationName: "assignedTo" }),

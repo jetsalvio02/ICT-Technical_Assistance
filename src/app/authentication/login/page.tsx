@@ -103,8 +103,23 @@ import { Grid, Box, Card, Stack, Typography } from "@mui/material";
 import PageContainer from "@/app/(AdminLayout)/components/container/PageContainer";
 import Logo from "@/app/(AdminLayout)/layout/shared/logo/Logo";
 import AuthLogin from "../auth/AuthLogin";
+import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 
 const Login2 = () => {
+  const [facebook_link, setFacebook_link] = useState("");
+
+  const { data: setting } = useQuery({
+    queryKey: ["setting"],
+    queryFn: () => fetch("/api/admin/settings").then((res) => res.json()),
+  });
+
+  useEffect(() => {
+    if (setting && setting.data) {
+      setFacebook_link(setting.data.facebookLink);
+    }
+  }, [setting]);
+
   return (
     <PageContainer title="Login" description="this is Login page">
       <Box
@@ -141,7 +156,13 @@ const Login2 = () => {
           >
             <Card
               elevation={9}
-              sx={{ p: 4, zIndex: 1, width: "100%", maxWidth: "500px" }}
+              sx={{
+                p: { xs: 2, sm: 4 },
+                zIndex: 1,
+                width: "100%",
+                maxWidth: "500px",
+                mx: { xs: 2, sm: 0 },
+              }}
             >
               <Box display="flex" alignItems="center" justifyContent="center">
                 <Logo />
@@ -190,7 +211,7 @@ const Login2 = () => {
                     <Stack justifyContent="center" alignItems="center" mt={2}>
                       <Typography
                         component={Link}
-                        href="https://www.facebook.com/help/"
+                        href={facebook_link}
                         target="_blank"
                         rel="noopener noreferrer"
                         variant="body2"

@@ -13,6 +13,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/lib/auth/auth-context";
 import { useEffect } from "react";
+import { Visibility, VisibilityOff } from "@mui/icons-material";
+import { IconButton } from "@mui/material";
 
 import CustomTextField from "@/app/(AdminLayout)/components/forms/theme-elements/CustomTextField";
 
@@ -25,6 +27,7 @@ interface loginType {
 const AuthLogin = ({ title, subtitle, subtext }: loginType) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [show_password, setShow_password] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { login, user, isAuthenticated } = useAuth();
@@ -102,7 +105,7 @@ const AuthLogin = ({ title, subtitle, subtext }: loginType) => {
           </Typography>
           <CustomTextField
             id="password"
-            type="password"
+            type={show_password ? "text" : "password"}
             variant="outlined"
             fullWidth
             value={password}
@@ -110,6 +113,16 @@ const AuthLogin = ({ title, subtitle, subtext }: loginType) => {
               setPassword(e.target.value)
             }
             required
+            InputProps={{
+              endAdornment: (
+                <IconButton
+                  onClick={() => setShow_password(!show_password)}
+                  edge="end"
+                >
+                  {show_password ? <Visibility /> : <VisibilityOff />}
+                </IconButton>
+              ),
+            }}
           />
         </Box>
         <Stack

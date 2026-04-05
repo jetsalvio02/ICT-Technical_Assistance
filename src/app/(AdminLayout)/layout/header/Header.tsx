@@ -12,7 +12,8 @@ import {
 } from "@mui/material";
 import Link from "next/link";
 import Profile from "./Profile";
-import { IconBellRinging, IconMenu } from "@tabler/icons-react";
+import NotificationDropdown from "./NotificationDropdown";
+import { IconMenu } from "@tabler/icons-react";
 
 interface ItemType {
   toggleMobileSidebar: (event: React.MouseEvent<HTMLElement>) => void;
@@ -31,6 +32,11 @@ const Header = ({ toggleMobileSidebar }: ItemType) => {
   const ToolbarStyled = styled(Toolbar)(({ theme }) => ({
     width: "100%",
     color: theme.palette.text.secondary,
+    [theme.breakpoints.down("sm")]: {
+      paddingLeft: 8,
+      paddingRight: 8,
+      minHeight: 56,
+    },
   }));
 
   return (
@@ -50,11 +56,7 @@ const Header = ({ toggleMobileSidebar }: ItemType) => {
           <IconMenu width="20" height="20" />
         </IconButton>
 
-        <IconButton size="large" aria-label="notifications" color="inherit">
-          <Badge variant="dot" color="primary">
-            <IconBellRinging size="21" stroke="1.5" />
-          </Badge>
-        </IconButton>
+        <NotificationDropdown />
         <Box flexGrow={1} />
         <Stack spacing={1} direction="row" alignItems="center">
           <Profile />

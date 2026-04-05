@@ -2,9 +2,11 @@ import {
   IconLayoutDashboard,
   IconList,
   IconUserPlus,
+  IconUserCheck,
   IconSettings,
   IconBuilding,
   IconBuildings,
+  IconReport,
 } from "@tabler/icons-react";
 import { id } from "date-fns/locale";
 
@@ -41,6 +43,12 @@ const Menuitems = [
     icon: IconUserPlus,
     href: "/admin/users",
   },
+  {
+    id: uniqueId(),
+    title: "Pending Accounts",
+    icon: IconUserCheck,
+    href: "/admin/pending-accounts",
+  },
   { navlabel: true, subheader: "DEPARTMENTS" },
   {
     id: uniqueId(),
@@ -50,7 +58,17 @@ const Menuitems = [
   },
   {
     navlabel: true,
-    subheader: "Settings",
+    subheader: "REPORTS",
+  },
+  {
+    id: uniqueId(),
+    title: "Reports",
+    icon: IconReport,
+    href: "/admin/reports",
+  },
+  {
+    navlabel: true,
+    subheader: "SETTINGS",
   },
   {
     id: uniqueId(),

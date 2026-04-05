@@ -62,13 +62,27 @@ export default function UsersPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [editUser, setEditUser] = useState<UserRecord | null>(null);
-  const [editRole, setEditRole] = useState("");
+  const [editForm, setEditForm] = useState({
+    firstName: "",
+    lastName: "",
+    middleName: "",
+    email: "",
+    role: "",
+  });
   const [resetUser, setResetUser] = useState<UserRecord | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newUser, setNewUser] = useState({
+    firstName: "",
+    lastName: "",
+    middleName: "",
+    email: "",
+    role: "User",
+  });
 
   // Fetch Users using useQuery
   const { data, isLoading, isRefetching, refetch } = useQuery({
@@ -101,20 +115,26 @@ export default function UsersPage() {
     },
   });
 
-  const updateRoleMutation = useMutation({
-    mutationFn: async ({ id, role }: { id: string; role: string }) => {
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ id, ...data }: any) => {
       const res = await fetch(`/api/users/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role }),
+        body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Failed to update role");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || "Failed to update user");
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       setEditUser(null);
-      Swal.fire("Updated!", "User role has been updated.", "success");
+      Swal.fire("Updated!", "User information has been updated.", "success");
+    },
+    onError: (error: any) => {
+      Swal.fire("Error!", error.message, "error");
     },
   });
 
@@ -140,12 +160,48 @@ export default function UsersPage() {
       const res = await fetch(`/api/users/${id}`, {
         method: "DELETE",
       });
-      if (!res.ok) throw new Error("Failed to delete user");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || "Failed to delete user");
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       Swal.fire("Deleted!", "User has been deleted.", "success");
+    },
+    onError: (error: any) => {
+      Swal.fire("Error!", error.message, "error");
+    },
+  });
+
+  const addUserMutation = useMutation({
+    mutationFn: async (userData: typeof newUser) => {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(userData),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || "Failed to add user");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      setIsAddModalOpen(false);
+      setNewUser({
+        firstName: "",
+        lastName: "",
+        middleName: "",
+        email: "",
+        role: "User",
+      });
+      Swal.fire("Success!", "User has been added with default password: <b>welcome@123</b>", "success");
+    },
+    onError: (error: any) => {
+      Swal.fire("Error!", error.message, "error");
     },
   });
 
@@ -153,9 +209,9 @@ export default function UsersPage() {
     toggleActiveMutation.mutate(user);
   };
 
-  const handleUpdateRole = () => {
+  const handleUpdateUser = () => {
     if (!editUser) return;
-    updateRoleMutation.mutate({ id: editUser.id, role: editRole });
+    updateUserMutation.mutate({ id: editUser.id, ...editForm });
   };
 
   const handleResetPassword = () => {
@@ -177,6 +233,15 @@ export default function UsersPage() {
     if (!result.isConfirmed) return;
 
     deleteUserMutation.mutate(user.id);
+  };
+
+  const handleAddUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUser.firstName || !newUser.lastName || !newUser.email) {
+      Swal.fire("Error", "Please fill in all required fields", "error");
+      return;
+    }
+    addUserMutation.mutate(newUser);
   };
 
   const handleDownloadTemplate = () => {
@@ -287,13 +352,13 @@ export default function UsersPage() {
     <PageContainer title="Users Management" description="Manage system users">
       <DashboardCard title="Users Management">
         {/* Filters */}
-        <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 3 }} flexWrap="wrap">
           <TextField
             size="small"
             placeholder="Search users..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            sx={{ minWidth: 300 }}
+            sx={{ minWidth: { xs: "100%", sm: 300 } }}
           />
           <Tooltip title="Refresh">
             <IconButton onClick={() => refetch()} disabled={isRefetching}>
@@ -329,7 +394,11 @@ export default function UsersPage() {
             <IconFileSpreadsheet size={20} />
             {importing ? "Importing..." : "Import Users"}
           </Button>
-          <Button variant="contained" color="primary">
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => setIsAddModalOpen(true)}
+          >
             <IconPlus size={20} />
             Add User
           </Button>
@@ -343,16 +412,16 @@ export default function UsersPage() {
         {isLoading ? (
           <Skeleton variant="rectangular" height={400} />
         ) : (
-          <TableContainer component={Paper} elevation={0}>
+          <TableContainer component={Paper} elevation={0} sx={{ overflowX: "auto" }}>
             <Table>
               <TableHead>
                 <TableRow>
                   <TableCell sx={{ fontWeight: 700 }}>User</TableCell>
                   <TableCell sx={{ fontWeight: 700 }}>Email</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Role</TableCell>
+                  <TableCell sx={{ fontWeight: 700, display: { xs: "none", md: "table-cell" } }}>Role</TableCell>
                   {/* <TableCell sx={{ fontWeight: 700 }}>Active</TableCell> */}
-                  <TableCell sx={{ fontWeight: 700 }}>Last Login</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Joined</TableCell>
+                  <TableCell sx={{ fontWeight: 700, display: { xs: "none", lg: "table-cell" } }}>Last Login</TableCell>
+                  <TableCell sx={{ fontWeight: 700, display: { xs: "none", lg: "table-cell" } }}>Joined</TableCell>
                   <TableCell sx={{ fontWeight: 700 }} align="center">
                     Actions
                   </TableCell>
@@ -393,7 +462,7 @@ export default function UsersPage() {
                       <TableCell>
                         <Typography variant="body2">{user.email}</Typography>
                       </TableCell>
-                      <TableCell>{getRoleChip(user.role)}</TableCell>
+                      <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>{getRoleChip(user.role)}</TableCell>
                       {/* <TableCell>
                         <Switch
                           size="small"
@@ -406,14 +475,14 @@ export default function UsersPage() {
                           color="success"
                         />
                       </TableCell> */}
-                      <TableCell>
+                      <TableCell sx={{ display: { xs: "none", lg: "table-cell" } }}>
                         <Typography variant="body2" color="textSecondary">
                           {user.lastLoginAt
                             ? new Date(user.lastLoginAt).toLocaleDateString()
                             : "Never"}
                         </Typography>
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ display: { xs: "none", lg: "table-cell" } }}>
                         <Typography variant="body2" color="textSecondary">
                           {new Date(user.createdAt).toLocaleDateString()}
                         </Typography>
@@ -424,12 +493,18 @@ export default function UsersPage() {
                           spacing={1}
                           justifyContent="center"
                         >
-                          <Tooltip title="Edit Role">
+                          <Tooltip title="Edit User">
                             <IconButton
                               size="small"
                               onClick={() => {
                                 setEditUser(user);
-                                setEditRole(user.role);
+                                setEditForm({
+                                  firstName: user.firstName,
+                                  lastName: user.lastName,
+                                  middleName: user.middleName || "",
+                                  email: user.email,
+                                  role: user.role,
+                                });
                               }}
                             >
                               <IconEdit size={18} />
@@ -481,26 +556,56 @@ export default function UsersPage() {
         />
       </DashboardCard>
 
-      {/* Edit Role Dialog */}
-      <Dialog open={!!editUser} onClose={() => setEditUser(null)}>
-        <DialogTitle>Edit User Role</DialogTitle>
-        <DialogContent sx={{ minWidth: 350 }}>
+      {/* Edit User Dialog */}
+      <Dialog open={!!editUser} onClose={() => setEditUser(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit User</DialogTitle>
+        <DialogContent>
           {editUser && (
-            <Stack spacing={2} sx={{ mt: 1 }}>
-              <Typography variant="body1">
-                <strong>
-                  {editUser.firstName} {editUser.lastName}
-                </strong>
-              </Typography>
-              <Typography variant="body2" color="textSecondary">
-                {editUser.email}
-              </Typography>
+            <Stack spacing={3} sx={{ mt: 1 }}>
+              <TextField
+                fullWidth
+                label="First Name"
+                required
+                value={editForm.firstName}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, firstName: e.target.value })
+                }
+              />
+              <TextField
+                fullWidth
+                label="Middle Name (Optional)"
+                value={editForm.middleName}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, middleName: e.target.value })
+                }
+              />
+              <TextField
+                fullWidth
+                label="Last Name"
+                required
+                value={editForm.lastName}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, lastName: e.target.value })
+                }
+              />
+              <TextField
+                fullWidth
+                label="Email"
+                type="email"
+                required
+                value={editForm.email}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, email: e.target.value })
+                }
+              />
               <FormControl fullWidth>
                 <InputLabel>Role</InputLabel>
                 <Select
-                  value={editRole}
+                  value={editForm.role}
                   label="Role"
-                  onChange={(e) => setEditRole(e.target.value)}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, role: e.target.value })
+                  }
                 >
                   <MenuItem value="User">User</MenuItem>
                   <MenuItem value="Technician">Technician</MenuItem>
@@ -514,10 +619,10 @@ export default function UsersPage() {
           <Button onClick={() => setEditUser(null)}>Cancel</Button>
           <Button
             variant="contained"
-            onClick={handleUpdateRole}
-            disabled={updateRoleMutation.isPending}
+            onClick={handleUpdateUser}
+            disabled={updateUserMutation.isPending}
           >
-            {updateRoleMutation.isPending ? "Saving..." : "Save"}
+            {updateUserMutation.isPending ? "Saving..." : "Save"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -554,6 +659,85 @@ export default function UsersPage() {
             {resetPasswordMutation.isPending ? "Resetting..." : "Reset"}
           </Button>
         </DialogActions>
+      </Dialog>
+      {/* Add User Dialog */}
+      <Dialog
+        open={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Add New User</DialogTitle>
+        <form onSubmit={handleAddUser}>
+          <DialogContent>
+            <Stack spacing={3} sx={{ mt: 1 }}>
+              <TextField
+                fullWidth
+                label="First Name"
+                required
+                value={newUser.firstName}
+                onChange={(e) =>
+                  setNewUser({ ...newUser, firstName: e.target.value })
+                }
+              />
+              <TextField
+                fullWidth
+                label="Middle Name (Optional)"
+                value={newUser.middleName}
+                onChange={(e) =>
+                  setNewUser({ ...newUser, middleName: e.target.value })
+                }
+              />
+              <TextField
+                fullWidth
+                label="Last Name"
+                required
+                value={newUser.lastName}
+                onChange={(e) =>
+                  setNewUser({ ...newUser, lastName: e.target.value })
+                }
+              />
+              <TextField
+                fullWidth
+                label="Email"
+                type="email"
+                required
+                value={newUser.email}
+                onChange={(e) =>
+                  setNewUser({ ...newUser, email: e.target.value })
+                }
+              />
+              <FormControl fullWidth>
+                <InputLabel>Role</InputLabel>
+                <Select
+                  value={newUser.role}
+                  label="Role"
+                  onChange={(e) =>
+                    setNewUser({ ...newUser, role: e.target.value })
+                  }
+                >
+                  <MenuItem value="User">User</MenuItem>
+                  <MenuItem value="Technician">Technician</MenuItem>
+                  <MenuItem value="Administrator">Administrator</MenuItem>
+                </Select>
+              </FormControl>
+              <Typography variant="caption" color="textSecondary">
+                Note: The user will be created with the default password:
+                <b> welcome@123</b>
+              </Typography>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setIsAddModalOpen(false)}>Cancel</Button>
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={addUserMutation.isPending}
+            >
+              {addUserMutation.isPending ? "Adding..." : "Add User"}
+            </Button>
+          </DialogActions>
+        </form>
       </Dialog>
     </PageContainer>
   );

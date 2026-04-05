@@ -4,11 +4,85 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Save } from "lucide-react";
+import { Save, Loader2 } from "lucide-react";
 import Swal from "sweetalert2";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Autocomplete,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+} from "@mui/material";
 
 export default function AdminSettingsPage() {
+  const queryClient = useQueryClient();
   const [facebookLink, setFacebookLink] = useState("");
+  const [infoOfficerId, setInfoOfficerId] = useState("");
+
+  const { data: users } = useQuery({
+    queryKey: ["users"],
+    queryFn: async () => {
+      const res = await fetch("/api/users");
+      if (!res.ok) throw new Error("Failed to fetch users");
+      return res.json();
+    },
+  });
+
+  const { data: settingsData, isLoading: isLoadingSettings } = useQuery({
+    queryKey: ["admin-settings"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/settings");
+      if (!res.ok) throw new Error("Failed to fetch settings");
+      return res.json();
+    },
+  });
+
+  useEffect(() => {
+    if (settingsData?.data) {
+      setFacebookLink(settingsData.data.facebookLink || "");
+      setInfoOfficerId(settingsData.data.infoOfficerId || "");
+    }
+  }, [settingsData]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (newData: {
+      infoOfficerId: string;
+      facebookLink: string;
+    }) => {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newData),
+      });
+      if (!res.ok) throw new Error("Failed to save settings");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
+      Swal.fire({
+        title: "Success",
+        text: "Settings saved successfully",
+        icon: "success",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+    },
+    onError: (error: any) => {
+      Swal.fire({
+        title: "Error",
+        text: error.message || "Something went wrong",
+        icon: "error",
+      });
+    },
+  });
+
+  const handleSave = () => {
+    saveMutation.mutate({ infoOfficerId, facebookLink });
+  };
+
+  const selectedUser =
+    users?.data?.find((u: any) => u.id === infoOfficerId) || null;
 
   return (
     <div className="min-h-screen bg-background px-3 py-4 sm:px-6 sm:py-6 space-y-4 sm:space-y-6 rounded-2xl">
@@ -27,6 +101,51 @@ export default function AdminSettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground block mb-2">
+                Information Officer
+              </label>
+              <Autocomplete
+                options={users?.data || []}
+                getOptionLabel={(option: any) =>
+                  `${option.firstName} ${option.lastName}`
+                }
+                value={selectedUser}
+                onChange={(_, newValue) => {
+                  setInfoOfficerId(newValue ? newValue.id : "");
+                }}
+                renderOption={(props, option) => (
+                  <li {...props} key={option.id}>
+                    {option.firstName} {option.lastName}
+                  </li>
+                )}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Search for Information Officer"
+                    size="small"
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        borderRadius: "0.75rem",
+                        backgroundColor: "transparent",
+                        fontSize: "0.875rem",
+                        "& .MuiOutlinedInput-notchedOutline": {
+                          borderColor: "rgba(0, 0, 0, 0.1)",
+                        },
+                        "&:hover .MuiOutlinedInput-notchedOutline": {
+                          borderColor: "rgba(0, 0, 0, 0.2)",
+                        },
+                        "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                          borderColor: "hsl(var(--primary))",
+                        },
+                      },
+                    }}
+                  />
+                )}
+                noOptionsText="No users found"
+                loading={!users}
+              />
+            </div>
+            <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">
                 Facebook Link
               </label>
@@ -35,12 +154,21 @@ export default function AdminSettingsPage() {
                 type="text"
                 onChange={(e) => setFacebookLink(e.target.value)}
                 placeholder="Paste your facebook link here"
+                className="rounded-xl"
               />
             </div>
             <div className="pt-2">
-              <Button>
-                <Save className="w-4 h-4" />
-                Save Changes
+              <Button
+                onClick={handleSave}
+                disabled={saveMutation.isPending || isLoadingSettings}
+                className="rounded-xl px-6"
+              >
+                {saveMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Save className="w-4 h-4 mr-2" />
+                )}
+                {saveMutation.isPending ? "Saving..." : "Save Changes"}
               </Button>
             </div>
           </CardContent>
