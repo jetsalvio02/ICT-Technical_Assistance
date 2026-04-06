@@ -161,7 +161,8 @@ export default function RequestListPage() {
     queryFn: async () => {
       let url = `/api/service-requests?page=${page}&limit=${limit}`;
       if (statusFilter !== "all") url += `&status=${statusFilter}`;
-      if (debouncedSearch) url += `&search=${encodeURIComponent(debouncedSearch)}`;
+      if (debouncedSearch)
+        url += `&search=${encodeURIComponent(debouncedSearch)}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch requests");
       return res.json();
@@ -1079,8 +1080,6 @@ export default function RequestListPage() {
     );
   };
 
-
-
   return (
     <PageContainer
       title="Request List"
@@ -1165,14 +1164,14 @@ export default function RequestListPage() {
                       Requester
                     </TableCell>
                     {/* <TableCell sx={{ fontWeight: 700 }}>Priority</TableCell> */}
-                    {/* <TableCell
+                    <TableCell
                       sx={{
                         fontWeight: 700,
                         display: { xs: "none", lg: "table-cell" },
                       }}
                     >
                       Assigned To
-                    </TableCell> */}
+                    </TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
                     <TableCell
                       sx={{
@@ -1233,7 +1232,7 @@ export default function RequestListPage() {
                           </Typography>
                         </TableCell>
                         {/* <TableCell>{getPriorityChip(req.priority)}</TableCell> */}
-                        {/* <TableCell
+                        <TableCell
                           sx={{ display: { xs: "none", lg: "table-cell" } }}
                         >
                           <Typography variant="body2">
@@ -1241,7 +1240,7 @@ export default function RequestListPage() {
                               ? `${req.assignedTo.firstName} ${req.assignedTo.lastName}`
                               : "—"}
                           </Typography>
-                        </TableCell> */}
+                        </TableCell>
                         <TableCell>{getStatusChip(req.status)}</TableCell>
                         <TableCell
                           sx={{ display: { xs: "none", sm: "table-cell" } }}
@@ -1294,7 +1293,7 @@ export default function RequestListPage() {
                               </IconButton>
                             </Tooltip>
 
-                            {/* <Tooltip title="Assign Technician">
+                            <Tooltip title="Assign Technician">
                               <IconButton
                                 size="small"
                                 onClick={() => {
@@ -1304,7 +1303,7 @@ export default function RequestListPage() {
                               >
                                 <IconUserCheck size={18} />
                               </IconButton>
-                            </Tooltip> */}
+                            </Tooltip>
                             <Tooltip title="Edit Request">
                               <IconButton
                                 size="small"
