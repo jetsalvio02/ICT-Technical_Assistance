@@ -94,13 +94,13 @@ const Dashboard = () => {
       color: theme.palette.warning.main,
       bgColor: theme.palette.warning.light,
     },
-    {
-      title: "In Progress",
-      value: stats?.byStatus?.in_progress ?? 0,
-      icon: <IconProgress size={28} />,
-      color: theme.palette.info.main,
-      bgColor: theme.palette.info.light,
-    },
+    // {
+    //   title: "In Progress",
+    //   value: stats?.byStatus?.in_progress ?? 0,
+    //   icon: <IconProgress size={28} />,
+    //   color: theme.palette.info.main,
+    //   bgColor: theme.palette.info.light,
+    // },
     {
       title: "Completed",
       value: stats?.byStatus?.completed ?? 0,
@@ -358,13 +358,31 @@ const Dashboard = () => {
           {isLoading ? (
             <Skeleton variant="rectangular" height={300} />
           ) : (
-            <TableContainer component={Paper} elevation={0} sx={{ overflowX: "auto" }}>
+            <TableContainer
+              component={Paper}
+              elevation={0}
+              sx={{ overflowX: "auto" }}
+            >
               <Table>
                 <TableHead>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 700 }}>Request #</TableCell>
-                    <TableCell sx={{ fontWeight: 700, display: { xs: "none", md: "table-cell" } }}>Description</TableCell>
-                    <TableCell sx={{ fontWeight: 700, display: { xs: "none", sm: "table-cell" } }}>Requester</TableCell>
+                    <TableCell
+                      sx={{
+                        fontWeight: 700,
+                        display: { xs: "none", md: "table-cell" },
+                      }}
+                    >
+                      Description
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        fontWeight: 700,
+                        display: { xs: "none", sm: "table-cell" },
+                      }}
+                    >
+                      Requester
+                    </TableCell>
                     {/* <TableCell sx={{ fontWeight: 700 }}>Priority</TableCell> */}
                     <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
@@ -391,7 +409,9 @@ const Dashboard = () => {
                             {req.requestNumber}
                           </Typography>
                         </TableCell>
-                        <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>
+                        <TableCell
+                          sx={{ display: { xs: "none", md: "table-cell" } }}
+                        >
                           <Typography
                             variant="body2"
                             sx={{
@@ -404,7 +424,9 @@ const Dashboard = () => {
                             {req.problemDescription}
                           </Typography>
                         </TableCell>
-                        <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
+                        <TableCell
+                          sx={{ display: { xs: "none", sm: "table-cell" } }}
+                        >
                           <Typography variant="body2">
                             {req.requester
                               ? `${req.requester.firstName} ${req.requester.lastName}`

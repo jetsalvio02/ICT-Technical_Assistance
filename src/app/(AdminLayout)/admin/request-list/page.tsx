@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -22,6 +22,7 @@ import {
   Tooltip,
   Skeleton,
   Pagination,
+  TablePagination,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -94,8 +95,19 @@ interface Technician {
 export default function RequestListPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(15);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [search]);
+
   const [selectedRequest, setSelectedRequest] = useState<ServiceRequest | null>(
     null,
   );
@@ -145,10 +157,11 @@ export default function RequestListPage() {
     isLoading,
     isRefetching,
   } = useQuery({
-    queryKey: ["service-requests", page, statusFilter],
+    queryKey: ["service-requests", page, statusFilter, debouncedSearch, limit],
     queryFn: async () => {
-      let url = `/api/service-requests?page=${page}&limit=15`;
+      let url = `/api/service-requests?page=${page}&limit=${limit}`;
       if (statusFilter !== "all") url += `&status=${statusFilter}`;
+      if (debouncedSearch) url += `&search=${encodeURIComponent(debouncedSearch)}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch requests");
       return res.json();
@@ -349,13 +362,29 @@ export default function RequestListPage() {
       recoveryPersonalEmail: req.recoveryPersonalEmail || "",
       recoveryMobileNumber: req.recoveryMobileNumber || "",
     });
+
+    // Populate findings if available
+    const initialFinding = req.findings?.[0];
+    setFindingsForm({
+      itemDescription: initialFinding?.itemDescription || "",
+      serialNumber: initialFinding?.serialNumber || "",
+      problemIssue: initialFinding?.problemIssue || "",
+      status: initialFinding?.status || "",
+      recommendationDescription:
+        initialFinding?.recommendationDescription || "",
+      actionTaken: initialFinding?.actionTaken || "",
+    });
+
     setEditDialogOpen(true);
   };
 
   const handleUpdateDetails = () => {
     updateRequestDetailsMutation.mutate({
       id: editRequestId,
-      data: editForm,
+      data: {
+        ...editForm,
+        findingsData: findingsForm,
+      },
     });
   };
 
@@ -1050,17 +1079,7 @@ export default function RequestListPage() {
     );
   };
 
-  const filteredRequests = requests.filter((r: ServiceRequest) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      (r.requestNumber?.toLowerCase() || "").includes(q) ||
-      (r.problemDescription?.toLowerCase() || "").includes(q) ||
-      `${r.requester?.firstName || ""} ${r.requester?.lastName || ""}`
-        .toLowerCase()
-        .includes(q)
-    );
-  });
+
 
   return (
     <PageContainer
@@ -1120,24 +1139,56 @@ export default function RequestListPage() {
           <Skeleton variant="rectangular" height={400} />
         ) : (
           <>
-            <TableContainer component={Paper} elevation={0} sx={{ overflowX: "auto" }}>
+            <TableContainer
+              component={Paper}
+              elevation={0}
+              sx={{ overflowX: "auto" }}
+            >
               <Table>
                 <TableHead>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 700 }}>Request #</TableCell>
-                    <TableCell sx={{ fontWeight: 700, display: { xs: "none", md: "table-cell" } }}>Description</TableCell>
-                    <TableCell sx={{ fontWeight: 700, display: { xs: "none", sm: "table-cell" } }}>Requester</TableCell>
+                    <TableCell
+                      sx={{
+                        fontWeight: 700,
+                        display: { xs: "none", md: "table-cell" },
+                      }}
+                    >
+                      Description
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        fontWeight: 700,
+                        display: { xs: "none", sm: "table-cell" },
+                      }}
+                    >
+                      Requester
+                    </TableCell>
                     {/* <TableCell sx={{ fontWeight: 700 }}>Priority</TableCell> */}
-                    <TableCell sx={{ fontWeight: 700, display: { xs: "none", lg: "table-cell" } }}>Assigned To</TableCell>
+                    {/* <TableCell
+                      sx={{
+                        fontWeight: 700,
+                        display: { xs: "none", lg: "table-cell" },
+                      }}
+                    >
+                      Assigned To
+                    </TableCell> */}
                     <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
-                    <TableCell sx={{ fontWeight: 700, display: { xs: "none", sm: "table-cell" } }}>Date</TableCell>
+                    <TableCell
+                      sx={{
+                        fontWeight: 700,
+                        display: { xs: "none", sm: "table-cell" },
+                      }}
+                    >
+                      Date
+                    </TableCell>
                     <TableCell sx={{ fontWeight: 700 }} align="center">
                       Actions
                     </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredRequests.length === 0 ? (
+                  {requests.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
                         <Typography color="textSecondary">
@@ -1146,7 +1197,7 @@ export default function RequestListPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredRequests.map((req: ServiceRequest) => (
+                    requests.map((req: ServiceRequest) => (
                       <TableRow key={req.id} hover>
                         <TableCell>
                           <Typography
@@ -1157,7 +1208,9 @@ export default function RequestListPage() {
                             {req.requestNumber}
                           </Typography>
                         </TableCell>
-                        <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>
+                        <TableCell
+                          sx={{ display: { xs: "none", md: "table-cell" } }}
+                        >
                           <Typography
                             variant="body2"
                             sx={{
@@ -1170,7 +1223,9 @@ export default function RequestListPage() {
                             {req.problemDescription}
                           </Typography>
                         </TableCell>
-                        <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
+                        <TableCell
+                          sx={{ display: { xs: "none", sm: "table-cell" } }}
+                        >
                           <Typography variant="body2">
                             {req.requester
                               ? `${req.requester.firstName} ${req.requester.lastName}`
@@ -1178,16 +1233,24 @@ export default function RequestListPage() {
                           </Typography>
                         </TableCell>
                         {/* <TableCell>{getPriorityChip(req.priority)}</TableCell> */}
-                        <TableCell sx={{ display: { xs: "none", lg: "table-cell" } }}>
+                        {/* <TableCell
+                          sx={{ display: { xs: "none", lg: "table-cell" } }}
+                        >
                           <Typography variant="body2">
                             {req.assignedTo
                               ? `${req.assignedTo.firstName} ${req.assignedTo.lastName}`
                               : "—"}
                           </Typography>
-                        </TableCell>
+                        </TableCell> */}
                         <TableCell>{getStatusChip(req.status)}</TableCell>
-                        <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
-                          <Typography variant="body2" color="textSecondary">
+                        <TableCell
+                          sx={{ display: { xs: "none", sm: "table-cell" } }}
+                        >
+                          <Typography
+                            variant="body2"
+                            color="textSecondary"
+                            suppressHydrationWarning
+                          >
                             {new Date(req.createdAt).toLocaleDateString()}
                           </Typography>
                         </TableCell>
@@ -1231,7 +1294,7 @@ export default function RequestListPage() {
                               </IconButton>
                             </Tooltip>
 
-                            <Tooltip title="Assign Technician">
+                            {/* <Tooltip title="Assign Technician">
                               <IconButton
                                 size="small"
                                 onClick={() => {
@@ -1241,7 +1304,7 @@ export default function RequestListPage() {
                               >
                                 <IconUserCheck size={18} />
                               </IconButton>
-                            </Tooltip>
+                            </Tooltip> */}
                             <Tooltip title="Edit Request">
                               <IconButton
                                 size="small"
@@ -1270,16 +1333,19 @@ export default function RequestListPage() {
               </Table>
             </TableContainer>
 
-            {totalPages > 1 && (
-              <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
-                <Pagination
-                  count={totalPages}
-                  page={page}
-                  onChange={(_, v) => setPage(v)}
-                  color="primary"
-                />
-              </Box>
-            )}
+            <TablePagination
+              component="div"
+              count={requestsData?.pagination?.total || 0}
+              page={page - 1}
+              onPageChange={(_, newPage) => setPage(newPage + 1)}
+              rowsPerPage={limit}
+              onRowsPerPageChange={(e) => {
+                setLimit(parseInt(e.target.value, 10));
+                setPage(1);
+              }}
+              rowsPerPageOptions={[10, 15, 25, 50, 100]}
+              sx={{ borderTop: "1px solid", borderColor: "divider", mt: 2 }}
+            />
           </>
         )}
       </DashboardCard>
@@ -1568,132 +1634,260 @@ export default function RequestListPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
       {/* Edit Request Dialog */}
       <Dialog
         open={editDialogOpen}
         onClose={() => setEditDialogOpen(false)}
-        maxWidth="md"
+        maxWidth="sm"
         fullWidth
       >
         <DialogTitle>Edit Service Request</DialogTitle>
-        {/* <DialogContent dividers>
-          <Stack spacing={3} sx={{ mt: 1 }}>
-            <TextField
-              label="Problem Description"
-              fullWidth
-              multiline
-              rows={4}
-              value={editForm.problemDescription}
-              onChange={(e) =>
-                setEditForm((prev) => ({
-                  ...prev,
-                  problemDescription: e.target.value,
-                }))
-              }
-            />
-            <FormControl fullWidth>
-              <InputLabel>Priority</InputLabel>
-              <Select
-                value={editForm.priority}
-                label="Priority"
-                onChange={(e) =>
-                  setEditForm((prev) => ({
-                    ...prev,
-                    priority: e.target.value,
-                  }))
-                }
-              >
-                <MenuItem value="low">Low</MenuItem>
-                <MenuItem value="medium">Medium</MenuItem>
-                <MenuItem value="high">High</MenuItem>
-                <MenuItem value="critical">Critical</MenuItem>
-              </Select>
-            </FormControl>
-            <Typography variant="subtitle2" sx={{ mb: -1, fontWeight: 700 }}>
-              Contact Information Overrides
-            </Typography>
-            <Stack direction="row" spacing={2}>
-              <TextField
-                label="School Head"
-                fullWidth
-                value={editForm.schoolHead}
-                onChange={(e) =>
-                  setEditForm((prev) => ({
-                    ...prev,
-                    schoolHead: e.target.value,
-                  }))
-                }
-              />
-              <TextField
-                label="School Head Contact"
-                fullWidth
-                value={editForm.schoolHeadContact}
-                onChange={(e) =>
-                  setEditForm((prev) => ({
-                    ...prev,
-                    schoolHeadContact: e.target.value,
-                  }))
-                }
-              />
-            </Stack>
-            <Stack direction="row" spacing={2}>
-              <TextField
-                label="ICT Coordinator"
-                fullWidth
-                value={editForm.ictCoordinator}
-                onChange={(e) =>
-                  setEditForm((prev) => ({
-                    ...prev,
-                    ictCoordinator: e.target.value,
-                  }))
-                }
-              />
-              <TextField
-                label="ICT Coordinator Contact"
-                fullWidth
-                value={editForm.ictCoordinatorContact}
-                onChange={(e) =>
-                  setEditForm((prev) => ({
-                    ...prev,
-                    ictCoordinatorContact: e.target.value,
-                  }))
-                }
-              />
-            </Stack>
-            <TextField
-              label="DepEd Email"
-              fullWidth
-              value={editForm.depEdEmail}
-              onChange={(e) =>
-                setEditForm((prev) => ({ ...prev, depEdEmail: e.target.value }))
-              }
-            />
-            <Stack direction="row" spacing={2}>
-              <TextField
-                label="Recovery Personal Email"
-                fullWidth
-                value={editForm.recoveryPersonalEmail}
-                onChange={(e) =>
-                  setEditForm((prev) => ({
-                    ...prev,
-                    recoveryPersonalEmail: e.target.value,
-                  }))
-                }
-              />
-              <TextField
-                label="Recovery Mobile Number"
-                fullWidth
-                value={editForm.recoveryMobileNumber}
-                onChange={(e) =>
-                  setEditForm((prev) => ({
-                    ...prev,
-                    recoveryMobileNumber: e.target.value,
-                  }))
-                }
-              />
-            </Stack>
+        <DialogContent dividers>
+          <Stack spacing={4} sx={{ mt: 1 }}>
+            {/* Request Details Section */}
+            {/* <Box>
+              <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
+                Request Details
+              </Typography>
+              <Stack spacing={3}>
+                <TextField
+                  label="Problem Description"
+                  fullWidth
+                  multiline
+                  rows={4}
+                  value={editForm.problemDescription}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({
+                      ...prev,
+                      problemDescription: e.target.value,
+                    }))
+                  }
+                />
+                <FormControl fullWidth>
+                  <InputLabel>Priority</InputLabel>
+                  <Select
+                    value={editForm.priority}
+                    label="Priority"
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        priority: e.target.value,
+                      }))
+                    }
+                  >
+                    <MenuItem value="low">Low</MenuItem>
+                    <MenuItem value="medium">Medium</MenuItem>
+                    <MenuItem value="high">High</MenuItem>
+                    <MenuItem value="critical">Critical</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mt: 1 }}>
+                  Contact Information Overrides
+                </Typography>
+                <Stack direction="row" spacing={2}>
+                  <TextField
+                    label="School Head"
+                    fullWidth
+                    value={editForm.schoolHead}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        schoolHead: e.target.value,
+                      }))
+                    }
+                  />
+                  <TextField
+                    label="School Head Contact"
+                    fullWidth
+                    value={editForm.schoolHeadContact}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        schoolHeadContact: e.target.value,
+                      }))
+                    }
+                  />
+                </Stack>
+                <Stack direction="row" spacing={2}>
+                  <TextField
+                    label="ICT Coordinator"
+                    fullWidth
+                    value={editForm.ictCoordinator}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        ictCoordinator: e.target.value,
+                      }))
+                    }
+                  />
+                  <TextField
+                    label="ICT Coordinator Contact"
+                    fullWidth
+                    value={editForm.ictCoordinatorContact}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        ictCoordinatorContact: e.target.value,
+                      }))
+                    }
+                  />
+                </Stack>
+                <TextField
+                  label="DepEd Email"
+                  fullWidth
+                  value={editForm.depEdEmail}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({
+                      ...prev,
+                      depEdEmail: e.target.value,
+                    }))
+                  }
+                />
+                <Stack direction="row" spacing={2}>
+                  <TextField
+                    label="Recovery Personal Email"
+                    fullWidth
+                    value={editForm.recoveryPersonalEmail}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        recoveryPersonalEmail: e.target.value,
+                      }))
+                    }
+                  />
+                  <TextField
+                    label="Recovery Mobile Number"
+                    fullWidth
+                    value={editForm.recoveryMobileNumber}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        recoveryMobileNumber: e.target.value,
+                      }))
+                    }
+                  />
+                </Stack>
+              </Stack>
+            </Box> */}
+
+            {/* Findings Section */}
+            <Box sx={{ pt: 2, borderTop: "1px solid", borderColor: "divider" }}>
+              <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.5 }}>
+                Findings
+              </Typography>
+              <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                Provide details about the item and findings
+              </Typography>
+              <Stack spacing={3}>
+                <TextField
+                  label="Item Description (Property Number)"
+                  placeholder="e.g., Dell Laptop, HP Printer, etc."
+                  fullWidth
+                  value={findingsForm.itemDescription}
+                  onChange={(e) =>
+                    setFindingsForm((prev) => ({
+                      ...prev,
+                      itemDescription: e.target.value,
+                    }))
+                  }
+                />
+                <TextField
+                  label="Serial Number"
+                  placeholder="Enter serial number or property number"
+                  fullWidth
+                  value={findingsForm.serialNumber}
+                  onChange={(e) =>
+                    setFindingsForm((prev) => ({
+                      ...prev,
+                      serialNumber: e.target.value,
+                    }))
+                  }
+                />
+                <TextField
+                  label="Problem/Issue Encountered"
+                  placeholder="Describe the specific problem or issue found during inspection..."
+                  fullWidth
+                  multiline
+                  rows={3}
+                  value={findingsForm.problemIssue}
+                  onChange={(e) =>
+                    setFindingsForm((prev) => ({
+                      ...prev,
+                      problemIssue: e.target.value,
+                    }))
+                  }
+                />
+                <FormControl>
+                  <FormLabel
+                    sx={{ fontWeight: 600, color: "text.primary", mb: 1 }}
+                  >
+                    Status/Recommendation
+                  </FormLabel>
+                  <RadioGroup
+                    value={findingsForm.status}
+                    onChange={(e) =>
+                      setFindingsForm((prev) => ({
+                        ...prev,
+                        status: e.target.value,
+                      }))
+                    }
+                  >
+                    <FormControlLabel
+                      value="good"
+                      control={<Radio />}
+                      label="Good/Returned"
+                    />
+                    <FormControlLabel
+                      value="authorized"
+                      control={<Radio />}
+                      label="Check for Authorized Service Center"
+                    />
+                    <FormControlLabel
+                      value="replacement"
+                      control={<Radio />}
+                      label="For Part Replacement"
+                    />
+                    <FormControlLabel
+                      value="unserviceable"
+                      control={<Radio />}
+                      label="Unserviceable"
+                    />
+                  </RadioGroup>
+                </FormControl>
+                <TextField
+                  label="Description"
+                  placeholder="Provide more details about the status/recommendation..."
+                  fullWidth
+                  multiline
+                  rows={2}
+                  value={findingsForm.recommendationDescription}
+                  onChange={(e) =>
+                    setFindingsForm((prev) => ({
+                      ...prev,
+                      recommendationDescription: e.target.value,
+                    }))
+                  }
+                />
+                <TextField
+                  label="Action Taken"
+                  placeholder="Describe any actions taken or recommendations..."
+                  fullWidth
+                  multiline
+                  rows={3}
+                  value={findingsForm.actionTaken}
+                  onChange={(e) =>
+                    setFindingsForm((prev) => ({
+                      ...prev,
+                      actionTaken: e.target.value,
+                    }))
+                  }
+                />
+              </Stack>
+            </Box>
           </Stack>
-        </DialogContent> */}
+        </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
           <Button

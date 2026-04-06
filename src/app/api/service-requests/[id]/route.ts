@@ -103,18 +103,38 @@ export async function PATCH(
       );
     }
 
-    // Save findings if provided
+    // Save or Update findings if provided
     if (body.findingsData) {
-      await db.insert(findings).values({
-        requestId: id,
-        itemDescription: body.findingsData.itemDescription || "N/A",
-        serialNumber: body.findingsData.serialNumber || null,
-        problemIssue: body.findingsData.problemIssue || "N/A",
-        status: body.findingsData.status || null,
-        recommendationDescription:
-          body.findingsData.recommendationDescription || null,
-        actionTaken: body.findingsData.actionTaken || null,
+      const existingFinding = await db.query.findings.findFirst({
+        where: eq(findings.requestId, id),
       });
+
+      if (existingFinding) {
+        await db
+          .update(findings)
+          .set({
+            itemDescription: body.findingsData.itemDescription || "N/A",
+            serialNumber: body.findingsData.serialNumber || null,
+            problemIssue: body.findingsData.problemIssue || "N/A",
+            status: body.findingsData.status || null,
+            recommendationDescription:
+              body.findingsData.recommendationDescription || null,
+            actionTaken: body.findingsData.actionTaken || null,
+            updatedAt: new Date(),
+          })
+          .where(eq(findings.id, existingFinding.id));
+      } else {
+        await db.insert(findings).values({
+          requestId: id,
+          itemDescription: body.findingsData.itemDescription || "N/A",
+          serialNumber: body.findingsData.serialNumber || null,
+          problemIssue: body.findingsData.problemIssue || "N/A",
+          status: body.findingsData.status || null,
+          recommendationDescription:
+            body.findingsData.recommendationDescription || null,
+          actionTaken: body.findingsData.actionTaken || null,
+        });
+      }
     }
 
     return NextResponse.json(updated);

@@ -7,7 +7,7 @@ import {
   users,
   notifications,
 } from "@/app/lib/db/schema";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, or, ilike } from "drizzle-orm";
 
 // Generate request number: SR-YYYY-NNNNN
 async function generateRequestNumber(): Promise<string> {
@@ -32,13 +32,29 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
     const status = searchParams.get("status");
+    const search = searchParams.get("search");
     const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const limit = parseInt(searchParams.get("limit") || "15");
     const offset = (page - 1) * limit;
 
     const conditions = [];
     if (userId) conditions.push(eq(serviceRequests.requesterId, userId));
     if (status) conditions.push(eq(serviceRequests.status, status as any));
+
+    if (search) {
+      const searchPattern = `%${search}%`;
+      conditions.push(
+        or(
+          ilike(serviceRequests.requestNumber, searchPattern),
+          ilike(serviceRequests.problemDescription, searchPattern),
+          sql`EXISTS (
+            SELECT 1 FROM "users" 
+            WHERE "users"."id" = ${serviceRequests.requesterId}
+            AND ("users"."first_name" ILIKE ${searchPattern} OR "users"."last_name" ILIKE ${searchPattern})
+          )`
+        )
+      );
+    }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
