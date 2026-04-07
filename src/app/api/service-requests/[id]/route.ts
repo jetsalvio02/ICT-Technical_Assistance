@@ -72,7 +72,7 @@ export async function PATCH(
     if (body.assignedToId) {
       updateData.assignedToId = body.assignedToId;
       updateData.assignedAt = new Date();
-      if (updateData.status === undefined) updateData.status = "assigned";
+      if (updateData.status === undefined) updateData.status = "in_progress";
     }
     if (body.priority) updateData.priority = body.priority;
     if (body.problemDescription)

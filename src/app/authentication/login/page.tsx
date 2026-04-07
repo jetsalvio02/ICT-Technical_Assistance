@@ -187,13 +187,13 @@ const Login2 = () => {
                       justifyContent="center"
                       mt={3}
                     >
-                      <Typography
+                      {/* <Typography
                         color="textSecondary"
                         variant="h6"
                         fontWeight="500"
                       >
                         Don't have an account?
-                      </Typography>
+                      </Typography> */}
                       <Typography
                         component={Link}
                         href="/authentication/register"
@@ -207,7 +207,7 @@ const Login2 = () => {
                       </Typography>
                     </Stack>
 
-                    {/* ✅ Added Facebook help link */}
+                    {/* Facebook help link */}
                     <Stack justifyContent="center" alignItems="center" mt={2}>
                       <Typography
                         component={Link}
@@ -219,12 +219,32 @@ const Login2 = () => {
                           textDecoration: "none",
                           color: "primary.main",
                           cursor: "pointer",
-                          textAlign: "center", // ✅ center text inside
-                          display: "block", // ✅ ensures full width behavior
+                          textAlign: "center",
+                          display: "block",
                         }}
                       >
                         Have trouble logging in? <br />
                         <span>Contact admin</span>
+                      </Typography>
+                    </Stack>
+
+                    {/* Credits */}
+                    <Stack justifyContent="center" alignItems="center" mt={2}>
+                      <Typography
+                        component={Link}
+                        href="/credits"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        variant="body2"
+                        sx={{
+                          textDecoration: "none",
+                          color: "primary.main",
+                          cursor: "pointer",
+                          textAlign: "center",
+                          display: "block",
+                        }}
+                      >
+                        Credits
                       </Typography>
                     </Stack>
                   </>

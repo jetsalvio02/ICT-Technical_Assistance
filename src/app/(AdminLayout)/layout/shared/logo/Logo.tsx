@@ -15,7 +15,7 @@ const Logo = () => {
     >
       <Link href="/">
         <Image
-          src="/images/logos/light_logo_rep.png"
+          src="/images/logos/logo_division_resize.png"
           alt="logo"
           height={100}
           width={100}

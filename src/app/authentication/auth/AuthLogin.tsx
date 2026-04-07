@@ -8,6 +8,7 @@ import {
   Stack,
   Checkbox,
   Alert,
+  TextField,
 } from "@mui/material";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -49,7 +50,7 @@ const AuthLogin = ({ title, subtitle, subtext }: loginType) => {
     setIsLoading(true);
 
     try {
-      await login(email, password);
+      await login(email.trim(), password);
       // Wait for user state to be updated or just check the result if login returned it
       // Since AuthContext sets user, we can assume it's available or we can use the logic from AuthContext
       // However, router.push is better handled here by checking the stored user or passing back role from login
@@ -73,7 +74,7 @@ const AuthLogin = ({ title, subtitle, subtext }: loginType) => {
       <Stack spacing={3} mt={3}>
         {error && <Alert severity="error">{error}</Alert>}
         <Box>
-          <Typography
+          {/* <Typography
             variant="subtitle1"
             fontWeight={600}
             component="label"
@@ -81,8 +82,8 @@ const AuthLogin = ({ title, subtitle, subtext }: loginType) => {
             mb="5px"
           >
             Email Address
-          </Typography>
-          <CustomTextField
+          </Typography> */}
+          {/* <CustomTextField
             id="username"
             variant="outlined"
             fullWidth
@@ -91,10 +92,25 @@ const AuthLogin = ({ title, subtitle, subtext }: loginType) => {
               setEmail(e.target.value)
             }
             required
+          /> */}
+          <TextField
+            id="username"
+            label="Email Address :"
+            placeholder="Enter your email address"
+            variant="outlined"
+            fullWidth
+            value={email}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setEmail(e.target.value)
+            }
+            InputLabelProps={{
+              required: false, // removes the *
+            }}
+            required
           />
         </Box>
         <Box>
-          <Typography
+          {/* <Typography
             variant="subtitle1"
             fontWeight={600}
             component="label"
@@ -102,8 +118,8 @@ const AuthLogin = ({ title, subtitle, subtext }: loginType) => {
             mb="5px"
           >
             Password
-          </Typography>
-          <CustomTextField
+          </Typography> */}
+          {/* <CustomTextField
             id="password"
             type={show_password ? "text" : "password"}
             variant="outlined"
@@ -123,21 +139,47 @@ const AuthLogin = ({ title, subtitle, subtext }: loginType) => {
                 </IconButton>
               ),
             }}
+          /> */}
+          <TextField
+            id="password"
+            label="Password :"
+            placeholder="Enter your password"
+            type={show_password ? "text" : "password"}
+            variant="outlined"
+            fullWidth
+            value={password}
+            InputLabelProps={{
+              required: false, // removes the *
+            }}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setPassword(e.target.value)
+            }
+            required
+            InputProps={{
+              endAdornment: (
+                <IconButton
+                  onClick={() => setShow_password(!show_password)}
+                  edge="end"
+                >
+                  {show_password ? <Visibility /> : <VisibilityOff />}
+                </IconButton>
+              ),
+            }}
           />
         </Box>
-        <Stack
+        {/* <Stack
           justifyContent="space-between"
           direction="row"
           alignItems="center"
           my={2}
-        >
-          <FormGroup>
-            {/* <FormControlLabel
+        > */}
+        {/* <FormGroup>
+          <FormControlLabel
               control={<Checkbox defaultChecked />}
               label="Remember this Device"
             /> */}
-          </FormGroup>
-          {/* <Typography
+        {/* </FormGroup> */}
+        {/* <Typography
             component={Link}
             href="/"
             fontWeight="500"
@@ -148,7 +190,7 @@ const AuthLogin = ({ title, subtitle, subtext }: loginType) => {
           >
             Forgot Password ?
           </Typography> */}
-        </Stack>
+        {/* </Stack> */}
       </Stack>
       <Box mt={2}>
         <Button

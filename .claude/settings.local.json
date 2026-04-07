@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find C:/Dev/A/src/app/api -type f -name *.ts)"
+    ]
+  }
+}
