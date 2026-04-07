@@ -427,7 +427,7 @@ export default function RequestListPage() {
 
       // Pad findings to at least 6 rows
       const findingsRows = [...(req.findings || [])];
-      while (findingsRows.length < 6)
+      while (findingsRows.length < 3)
         findingsRows.push({
           itemDescription: "",
           serialNumber: "",
@@ -1641,7 +1641,14 @@ export default function RequestListPage() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Edit Service Request</DialogTitle>
+        <DialogTitle>
+          <Typography variant="h5" fontWeight={700} component="div">
+            Findings
+          </Typography>
+          <Typography variant="body2" color="textSecondary" component="div">
+            Provide details about the item and findings
+          </Typography>
+        </DialogTitle>
         <DialogContent dividers>
           <Stack spacing={4} sx={{ mt: 1 }}>
             {/* Request Details Section */}
@@ -1772,119 +1779,119 @@ export default function RequestListPage() {
             </Box> */}
 
             {/* Findings Section */}
-            <Box sx={{ pt: 2, borderTop: "1px solid", borderColor: "divider" }}>
-              <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.5 }}>
+            {/* <Box sx={{ pt: 2, borderTop: "1px solid", borderColor: "divider" }}> */}
+            {/* <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.5 }}>
                 Findings
               </Typography>
               <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
                 Provide details about the item and findings
-              </Typography>
-              <Stack spacing={3}>
-                <TextField
-                  label="Item Description (Property Number)"
-                  placeholder="e.g., Dell Laptop, HP Printer, etc."
-                  fullWidth
-                  value={findingsForm.itemDescription}
+              </Typography> */}
+            <Stack spacing={3}>
+              <TextField
+                label="Item Description (Property Number)"
+                placeholder="e.g., Dell Laptop, HP Printer, etc."
+                fullWidth
+                value={findingsForm.itemDescription}
+                onChange={(e) =>
+                  setFindingsForm((prev) => ({
+                    ...prev,
+                    itemDescription: e.target.value,
+                  }))
+                }
+              />
+              <TextField
+                label="Serial Number"
+                placeholder="Enter serial number or property number"
+                fullWidth
+                value={findingsForm.serialNumber}
+                onChange={(e) =>
+                  setFindingsForm((prev) => ({
+                    ...prev,
+                    serialNumber: e.target.value,
+                  }))
+                }
+              />
+              <TextField
+                label="Problem/Issue Encountered"
+                placeholder="Describe the specific problem or issue found during inspection..."
+                fullWidth
+                multiline
+                rows={3}
+                value={findingsForm.problemIssue}
+                onChange={(e) =>
+                  setFindingsForm((prev) => ({
+                    ...prev,
+                    problemIssue: e.target.value,
+                  }))
+                }
+              />
+              <FormControl>
+                <FormLabel
+                  sx={{ fontWeight: 600, color: "text.primary", mb: 1 }}
+                >
+                  Status/Recommendation
+                </FormLabel>
+                <RadioGroup
+                  value={findingsForm.status}
                   onChange={(e) =>
                     setFindingsForm((prev) => ({
                       ...prev,
-                      itemDescription: e.target.value,
+                      status: e.target.value,
                     }))
                   }
-                />
-                <TextField
-                  label="Serial Number"
-                  placeholder="Enter serial number or property number"
-                  fullWidth
-                  value={findingsForm.serialNumber}
-                  onChange={(e) =>
-                    setFindingsForm((prev) => ({
-                      ...prev,
-                      serialNumber: e.target.value,
-                    }))
-                  }
-                />
-                <TextField
-                  label="Problem/Issue Encountered"
-                  placeholder="Describe the specific problem or issue found during inspection..."
-                  fullWidth
-                  multiline
-                  rows={3}
-                  value={findingsForm.problemIssue}
-                  onChange={(e) =>
-                    setFindingsForm((prev) => ({
-                      ...prev,
-                      problemIssue: e.target.value,
-                    }))
-                  }
-                />
-                <FormControl>
-                  <FormLabel
-                    sx={{ fontWeight: 600, color: "text.primary", mb: 1 }}
-                  >
-                    Status/Recommendation
-                  </FormLabel>
-                  <RadioGroup
-                    value={findingsForm.status}
-                    onChange={(e) =>
-                      setFindingsForm((prev) => ({
-                        ...prev,
-                        status: e.target.value,
-                      }))
-                    }
-                  >
-                    <FormControlLabel
-                      value="good"
-                      control={<Radio />}
-                      label="Good/Returned"
-                    />
-                    <FormControlLabel
-                      value="authorized"
-                      control={<Radio />}
-                      label="Check for Authorized Service Center"
-                    />
-                    <FormControlLabel
-                      value="replacement"
-                      control={<Radio />}
-                      label="For Part Replacement"
-                    />
-                    <FormControlLabel
-                      value="unserviceable"
-                      control={<Radio />}
-                      label="Unserviceable"
-                    />
-                  </RadioGroup>
-                </FormControl>
-                <TextField
-                  label="Description"
-                  placeholder="Provide more details about the status/recommendation..."
-                  fullWidth
-                  multiline
-                  rows={2}
-                  value={findingsForm.recommendationDescription}
-                  onChange={(e) =>
-                    setFindingsForm((prev) => ({
-                      ...prev,
-                      recommendationDescription: e.target.value,
-                    }))
-                  }
-                />
-                <TextField
-                  label="Action Taken"
-                  placeholder="Describe any actions taken or recommendations..."
-                  fullWidth
-                  multiline
-                  rows={3}
-                  value={findingsForm.actionTaken}
-                  onChange={(e) =>
-                    setFindingsForm((prev) => ({
-                      ...prev,
-                      actionTaken: e.target.value,
-                    }))
-                  }
-                />
-              </Stack>
-            </Box>
+                >
+                  <FormControlLabel
+                    value="good"
+                    control={<Radio />}
+                    label="Good/Returned"
+                  />
+                  <FormControlLabel
+                    value="authorized"
+                    control={<Radio />}
+                    label="Check for Authorized Service Center"
+                  />
+                  <FormControlLabel
+                    value="replacement"
+                    control={<Radio />}
+                    label="For Part Replacement"
+                  />
+                  <FormControlLabel
+                    value="unserviceable"
+                    control={<Radio />}
+                    label="Unserviceable"
+                  />
+                </RadioGroup>
+              </FormControl>
+              <TextField
+                label="Description"
+                placeholder="Provide more details about the status/recommendation..."
+                fullWidth
+                multiline
+                rows={2}
+                value={findingsForm.recommendationDescription}
+                onChange={(e) =>
+                  setFindingsForm((prev) => ({
+                    ...prev,
+                    recommendationDescription: e.target.value,
+                  }))
+                }
+              />
+              <TextField
+                label="Action Taken"
+                placeholder="Describe any actions taken or recommendations..."
+                fullWidth
+                multiline
+                rows={3}
+                value={findingsForm.actionTaken}
+                onChange={(e) =>
+                  setFindingsForm((prev) => ({
+                    ...prev,
+                    actionTaken: e.target.value,
+                  }))
+                }
+              />
+            </Stack>
+            {/* </Box> */}
           </Stack>
         </DialogContent>
         <DialogActions>
