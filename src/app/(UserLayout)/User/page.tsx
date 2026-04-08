@@ -60,8 +60,8 @@ export default function DashboardPage() {
     }
 
     fetchData();
-    // Poll every 5 seconds for real-time updates
-    const intervalId = setInterval(fetchData, 5000);
+    // Poll every 2 seconds for real-time updates
+    const intervalId = setInterval(fetchData, 2000);
     return () => clearInterval(intervalId);
   }, [user]);
 

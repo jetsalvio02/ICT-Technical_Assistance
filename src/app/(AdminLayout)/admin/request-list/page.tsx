@@ -32,6 +32,7 @@ import {
   Radio,
   FormControlLabel,
   FormLabel,
+  Autocomplete,
 } from "@mui/material";
 import {
   IconRefresh,
@@ -83,7 +84,7 @@ interface ServiceRequest {
     recommendationDescription?: string;
     actionTaken?: string;
   }[];
-  assignedTo?: { firstName: string; lastName: string } | null;
+  assignedTo?: { id: string; firstName: string; lastName: string } | null;
 }
 
 interface Technician {
@@ -113,7 +114,9 @@ export default function RequestListPage() {
   );
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [assignRequestId, setAssignRequestId] = useState<string>("");
-  const [selectedTechnician, setSelectedTechnician] = useState<string>("");
+  const [selectedTechnician, setSelectedTechnician] = useState<string | null>(
+    null,
+  );
 
   // Findings modal state
   const [findingsDialogOpen, setFindingsDialogOpen] = useState(false);
@@ -167,19 +170,28 @@ export default function RequestListPage() {
       if (!res.ok) throw new Error("Failed to fetch requests");
       return res.json();
     },
+    refetchInterval: 1000,
   });
 
   // Fetch Technicians
   const { data: technicians = [] } = useQuery({
     queryKey: ["technicians"],
     queryFn: async () => {
-      const res = await fetch("/api/users?limit=100");
-      if (!res.ok) throw new Error("Failed to fetch technicians");
-      const data = await res.json();
-      return (data.data || []).filter(
-        (u: any) => u.role === "Technician" || u.role === "Administrator",
-      ) as Technician[];
+      // Fetch both Technicians and Administrators as they can both be assigned
+      const [techRes, adminRes] = await Promise.all([
+        fetch("/api/users?role=Technician&limit=100"),
+        fetch("/api/users?role=Administrator&limit=100"),
+      ]);
+
+      if (!techRes.ok || !adminRes.ok)
+        throw new Error("Failed to fetch technicians");
+
+      const techData = await techRes.json();
+      const adminData = await adminRes.json();
+
+      return [...(techData.data || []), ...(adminData.data || [])] as Technician[];
     },
+    refetchInterval: 30000, // 30 seconds is more reasonable than 1s
   });
 
   const requests = requestsData?.data || [];
@@ -221,7 +233,7 @@ export default function RequestListPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["service-requests"] });
       setAssignDialogOpen(false);
-      setSelectedTechnician("");
+      setSelectedTechnician(null);
       Swal.fire("Assigned!", "Technician has been assigned.", "success");
     },
   });
@@ -1298,6 +1310,7 @@ export default function RequestListPage() {
                                 size="small"
                                 onClick={() => {
                                   setAssignRequestId(req.id);
+                                  setSelectedTechnician(req.assignedTo?.id || null);
                                   setAssignDialogOpen(true);
                                 }}
                               >
@@ -1470,20 +1483,26 @@ export default function RequestListPage() {
       >
         <DialogTitle>Assign Technician</DialogTitle>
         <DialogContent sx={{ minWidth: 350 }}>
-          <FormControl fullWidth sx={{ mt: 1 }}>
-            <InputLabel>Select Technician</InputLabel>
-            <Select
-              value={selectedTechnician}
-              label="Select Technician"
-              onChange={(e) => setSelectedTechnician(e.target.value)}
-            >
-              {technicians.map((t) => (
-                <MenuItem key={t.id} value={t.id}>
-                  {t.firstName} {t.lastName}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Autocomplete
+            multiple={false}
+            disableClearable
+            options={technicians}
+            getOptionLabel={(option) => `${option.firstName} ${option.lastName}`}
+            value={(technicians.find((t) => t.id === selectedTechnician) || null) as any}
+            onChange={(e, value) => setSelectedTechnician(value ? value.id : null)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Search Technician"
+                placeholder="Type to search..."
+                sx={{ mt: 1 }}
+                fullWidth
+                InputLabelProps={{
+                  shrink: true,
+                }}
+              />
+            )}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAssignDialogOpen(false)}>Cancel</Button>
@@ -1651,141 +1670,6 @@ export default function RequestListPage() {
         </DialogTitle>
         <DialogContent dividers>
           <Stack spacing={4} sx={{ mt: 1 }}>
-            {/* Request Details Section */}
-            {/* <Box>
-              <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
-                Request Details
-              </Typography>
-              <Stack spacing={3}>
-                <TextField
-                  label="Problem Description"
-                  fullWidth
-                  multiline
-                  rows={4}
-                  value={editForm.problemDescription}
-                  onChange={(e) =>
-                    setEditForm((prev) => ({
-                      ...prev,
-                      problemDescription: e.target.value,
-                    }))
-                  }
-                />
-                <FormControl fullWidth>
-                  <InputLabel>Priority</InputLabel>
-                  <Select
-                    value={editForm.priority}
-                    label="Priority"
-                    onChange={(e) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        priority: e.target.value,
-                      }))
-                    }
-                  >
-                    <MenuItem value="low">Low</MenuItem>
-                    <MenuItem value="medium">Medium</MenuItem>
-                    <MenuItem value="high">High</MenuItem>
-                    <MenuItem value="critical">Critical</MenuItem>
-                  </Select>
-                </FormControl>
-
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, mt: 1 }}>
-                  Contact Information Overrides
-                </Typography>
-                <Stack direction="row" spacing={2}>
-                  <TextField
-                    label="School Head"
-                    fullWidth
-                    value={editForm.schoolHead}
-                    onChange={(e) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        schoolHead: e.target.value,
-                      }))
-                    }
-                  />
-                  <TextField
-                    label="School Head Contact"
-                    fullWidth
-                    value={editForm.schoolHeadContact}
-                    onChange={(e) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        schoolHeadContact: e.target.value,
-                      }))
-                    }
-                  />
-                </Stack>
-                <Stack direction="row" spacing={2}>
-                  <TextField
-                    label="ICT Coordinator"
-                    fullWidth
-                    value={editForm.ictCoordinator}
-                    onChange={(e) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        ictCoordinator: e.target.value,
-                      }))
-                    }
-                  />
-                  <TextField
-                    label="ICT Coordinator Contact"
-                    fullWidth
-                    value={editForm.ictCoordinatorContact}
-                    onChange={(e) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        ictCoordinatorContact: e.target.value,
-                      }))
-                    }
-                  />
-                </Stack>
-                <TextField
-                  label="DepEd Email"
-                  fullWidth
-                  value={editForm.depEdEmail}
-                  onChange={(e) =>
-                    setEditForm((prev) => ({
-                      ...prev,
-                      depEdEmail: e.target.value,
-                    }))
-                  }
-                />
-                <Stack direction="row" spacing={2}>
-                  <TextField
-                    label="Recovery Personal Email"
-                    fullWidth
-                    value={editForm.recoveryPersonalEmail}
-                    onChange={(e) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        recoveryPersonalEmail: e.target.value,
-                      }))
-                    }
-                  />
-                  <TextField
-                    label="Recovery Mobile Number"
-                    fullWidth
-                    value={editForm.recoveryMobileNumber}
-                    onChange={(e) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        recoveryMobileNumber: e.target.value,
-                      }))
-                    }
-                  />
-                </Stack>
-              </Stack>
-            </Box> */}
-
-            {/* Findings Section */}
-            {/* <Box sx={{ pt: 2, borderTop: "1px solid", borderColor: "divider" }}> */}
-            {/* <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.5 }}>
-                Findings
-              </Typography>
-              <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-                Provide details about the item and findings
-              </Typography> */}
             <Stack spacing={3}>
               <TextField
                 label="Item Description (Property Number)"

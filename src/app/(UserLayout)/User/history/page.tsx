@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, FileText } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 interface ServiceRequest {
   id: string;
@@ -21,30 +22,28 @@ interface ServiceRequest {
 
 export default function HistoryPage() {
   const { user } = useAuth();
-  const [requests, setRequests] = useState<ServiceRequest[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (!user) return;
-
-    async function fetchHistory() {
-      try {
-        const res = await fetch(
-          `/api/service-requests?userId=${user!.id}&limit=50`,
-        );
-        if (res.ok) {
-          const data = await res.json();
-          setRequests(data.data || []);
-        }
-      } catch (error) {
-        console.error("Error fetching history:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchHistory();
-  }, [user]);
+  // TanStack Query for fetching history
+  const {
+    data: requests = [],
+    isLoading,
+    isError,
+    error,
+  } = useQuery<ServiceRequest[]>({
+    queryKey: ["history", user?.id],
+    queryFn: async (): Promise<ServiceRequest[]> => {
+      if (!user) throw new Error("User not authenticated");
+      const res = await fetch(
+        `/api/service-requests?userId=${user.id}&limit=50`,
+      );
+      if (!res.ok) throw new Error("Failed to fetch history");
+      const data = await res.json();
+      return data.data || [];
+    },
+    enabled: !!user,
+    refetchInterval: 1000, // Poll every 1 seconds for real-time updates
+    refetchIntervalInBackground: true,
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {

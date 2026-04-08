@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/app/lib/auth/auth-context";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { FileText, Loader2, Search, Filter, Trash2, Edit2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 
 interface ServiceRequest {
   id: string;
@@ -23,36 +24,51 @@ interface ServiceRequest {
 export default function RequestsPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [requests, setRequests] = useState<ServiceRequest[]>([]);
-  const [filteredRequests, setFilteredRequests] = useState<ServiceRequest[]>(
-    [],
-  );
-  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  useEffect(() => {
-    if (!user) return;
+  // TanStack Query for fetching requests
+  const {
+    data: requests = [],
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ["requests", user?.id],
+    queryFn: async () => {
+      if (!user) throw new Error("User not authenticated");
+      const res = await fetch(
+        `/api/service-requests?userId=${user.id}&limit=100`,
+      );
+      if (!res.ok) throw new Error("Failed to fetch requests");
+      const data = await res.json();
+      return data.data || [];
+    },
+    enabled: !!user,
+    refetchInterval: 1000, // Poll every 1 seconds for real-time updates
+    refetchIntervalInBackground: true,
+  });
 
-    async function fetchRequests() {
-      try {
-        const res = await fetch(
-          `/api/service-requests?userId=${user!.id}&limit=100`,
-        );
-        if (res.ok) {
-          const data = await res.json();
-          setRequests(data.data || []);
-          setFilteredRequests(data.data || []);
-        }
-      } catch (error) {
-        console.error("Error fetching requests:", error);
-      } finally {
-        setIsLoading(false);
-      }
+  const filteredRequests = useMemo(() => {
+    let filtered: ServiceRequest[] = requests;
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (r: ServiceRequest) =>
+          r.requestNumber.toLowerCase().includes(q) ||
+          r.problemDescription.toLowerCase().includes(q),
+      );
     }
 
-    fetchRequests();
-  }, [user]);
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(
+        (r: ServiceRequest) => r.status === statusFilter,
+      );
+    }
+
+    return filtered;
+  }, [requests, searchQuery, statusFilter]);
 
   const handleDelete = async (id: string) => {
     if (!window.confirm("Are you sure you want to delete this request?"))
@@ -64,8 +80,9 @@ export default function RequestsPage() {
       });
 
       if (res.ok) {
-        setRequests((prev) => prev.filter((r) => r.id !== id));
         toast.success("Request deleted successfully");
+        // Invalidate the query to refetch updated data
+        // Note: We don't have access to queryClient here, so we rely on refetchInterval
       } else {
         const data = await res.json();
         toast.error(data.message || "Failed to delete request");
@@ -79,25 +96,6 @@ export default function RequestsPage() {
   const handleEdit = (id: string) => {
     router.push(`/User/appointments?edit=${id}`);
   };
-
-  useEffect(() => {
-    let filtered = requests;
-
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (r) =>
-          r.requestNumber.toLowerCase().includes(q) ||
-          r.problemDescription.toLowerCase().includes(q),
-      );
-    }
-
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((r) => r.status === statusFilter);
-    }
-
-    setFilteredRequests(filtered);
-  }, [searchQuery, statusFilter, requests]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -122,14 +120,7 @@ export default function RequestsPage() {
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(" ");
 
-  const statuses = [
-    "all",
-    "pending",
-    "assigned",
-    "in_progress",
-    "completed",
-    "cancelled",
-  ];
+  const statuses = ["all", "pending", "in_progress", "completed"];
 
   return (
     <div className="p-6 md:p-8 space-y-6">
