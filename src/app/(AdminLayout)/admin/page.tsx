@@ -16,6 +16,9 @@ import {
   TableRow,
   Paper,
   Skeleton,
+  Select,
+  MenuItem,
+  FormControl,
 } from "@mui/material";
 import {
   IconFileText,
@@ -30,6 +33,33 @@ import DashboardCard from "@/app/(AdminLayout)/components/shared/DashboardCard";
 import dynamic from "next/dynamic";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
+
+const getChartColors = (
+  theme: any,
+  chartType: string,
+  count: number,
+  isSuccess: boolean = false,
+) => {
+  if (chartType === "bar") {
+    return [isSuccess ? theme.palette.success.main : theme.palette.info.main];
+  }
+
+  const baseColors = [
+    theme.palette.primary.main,
+    theme.palette.error.main,
+    theme.palette.warning.main,
+    theme.palette.success.main,
+    theme.palette.secondary.main,
+  ];
+
+  const colors = [...baseColors];
+  // Generate distinct colors using the golden angle approximation for any additional data points
+  for (let i = baseColors.length; i < Math.max(count, baseColors.length); i++) {
+    const hue = (i * 137.508) % 360;
+    colors.push(`hsl(${Math.round(hue)}, 70%, 50%)`);
+  }
+  return colors;
+};
 
 interface Stats {
   totalRequests: number;
@@ -56,6 +86,8 @@ const Dashboard = () => {
   const [stats, setStats] = useState<Stats | null>(null);
   const [recentRequests, setRecentRequests] = useState<RecentRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [districtChartType, setDistrictChartType] = useState<"bar" | "pie" | "donut">("bar");
+  const [officeChartType, setOfficeChartType] = useState<"bar" | "pie" | "donut">("bar");
 
   useEffect(() => {
     async function fetchData() {
@@ -194,64 +226,152 @@ const Dashboard = () => {
   ];
 
   // Chart config for District requests
+  const districtCategories = stats?.byDistrict?.map((d) => d.name) || [];
+  const districtData = stats?.byDistrict?.map((d) => d.count) || [];
+
   const districtChartOptions: any = {
     chart: {
-      type: "bar",
+      type: districtChartType,
       fontFamily: "'Plus Jakarta Sans', sans-serif",
       foreColor: "#000",
       toolbar: { show: true },
       height: 350,
     },
-    colors: [theme.palette.info.main],
+    ...(districtChartType !== "bar" && {
+      labels: districtCategories.length > 0 ? districtCategories : ["No data"],
+    }),
+    colors: getChartColors(theme, districtChartType, districtCategories.length),
     plotOptions: {
       bar: {
         borderRadius: 4,
         horizontal: true,
       },
     },
-    dataLabels: { enabled: true, style: { colors: ["#000"] } },
-    xaxis: {
-      categories: stats?.byDistrict?.map((d) => d.name) || [],
+    dataLabels: {
+      enabled: true,
+      formatter: function (val: number, opts: any) {
+        if (districtChartType === "bar") return val;
+        return opts.w.config.series[opts.seriesIndex];
+      },
     },
+    ...(districtChartType === "bar" && {
+      xaxis: {
+        categories: districtCategories,
+        tickAmount: districtData.length
+          ? Math.max(...districtData) < 5
+            ? Math.max(...districtData)
+            : 5
+          : 1,
+        labels: {
+          formatter: function (val: string) {
+            return Math.floor(Number(val)).toString();
+          },
+        },
+      },
+    }),
     tooltip: { theme: "dark" },
   };
 
-  const districtChartSeries = [
-    {
-      name: "Requests",
-      data: stats?.byDistrict?.map((d) => d.count) || [],
-    },
-  ];
+  const districtChartSeries =
+    districtChartType === "bar"
+      ? [{ name: "Requests", data: districtData }]
+      : districtData.length > 0
+      ? districtData
+      : [0];
+
+  const districtAction = (
+    <FormControl size="small" variant="outlined" sx={{ minWidth: 100 }}>
+      <Select
+        value={districtChartType}
+        onChange={(e) =>
+          setDistrictChartType(e.target.value as "bar" | "pie" | "donut")
+        }
+        sx={{
+          bgcolor: "background.paper",
+          fontSize: "0.875rem",
+          "& .MuiSelect-select": { py: 0.5 },
+        }}
+      >
+        <MenuItem value="bar">Bar</MenuItem>
+        <MenuItem value="pie">Pie</MenuItem>
+        <MenuItem value="donut">Donut</MenuItem>
+      </Select>
+    </FormControl>
+  );
 
   // Chart config for Office requests
+  const officeCategories = stats?.byOffice?.map((o) => o.name) || [];
+  const officeData = stats?.byOffice?.map((o) => o.count) || [];
+
   const officeChartOptions: any = {
     chart: {
-      type: "bar",
+      type: officeChartType,
       fontFamily: "'Plus Jakarta Sans', sans-serif",
       foreColor: "#000",
       toolbar: { show: true },
       height: 450,
     },
-    colors: [theme.palette.success.main],
+    ...(officeChartType !== "bar" && {
+      labels: officeCategories.length > 0 ? officeCategories : ["No data"],
+    }),
+    colors: getChartColors(theme, officeChartType, officeCategories.length, true),
     plotOptions: {
       bar: {
         borderRadius: 4,
         horizontal: true,
       },
     },
-    dataLabels: { enabled: true, style: { colors: ["#000"] } },
-    xaxis: {
-      categories: stats?.byOffice?.map((o) => o.name) || [],
+    dataLabels: {
+      enabled: true,
+      formatter: function (val: number, opts: any) {
+        if (officeChartType === "bar") return val;
+        return opts.w.config.series[opts.seriesIndex];
+      },
     },
+    ...(officeChartType === "bar" && {
+      xaxis: {
+        categories: officeCategories,
+        tickAmount: officeData.length
+          ? Math.max(...officeData) < 5
+            ? Math.max(...officeData)
+            : 5
+          : 1,
+        labels: {
+          formatter: function (val: string) {
+            return Math.floor(Number(val)).toString();
+          },
+        },
+      },
+    }),
     tooltip: { theme: "dark" },
   };
 
-  const officeChartSeries = [
-    {
-      name: "Requests",
-      data: stats?.byOffice?.map((o) => o.count) || [],
-    },
-  ];
+  const officeChartSeries =
+    officeChartType === "bar"
+      ? [{ name: "Requests", data: officeData }]
+      : officeData.length > 0
+      ? officeData
+      : [0];
+
+  const officeAction = (
+    <FormControl size="small" variant="outlined" sx={{ minWidth: 100 }}>
+      <Select
+        value={officeChartType}
+        onChange={(e) =>
+          setOfficeChartType(e.target.value as "bar" | "pie" | "donut")
+        }
+        sx={{
+          bgcolor: "background.paper",
+          fontSize: "0.875rem",
+          "& .MuiSelect-select": { py: 0.5 },
+        }}
+      >
+        <MenuItem value="bar">Bar</MenuItem>
+        <MenuItem value="pie">Pie</MenuItem>
+        <MenuItem value="donut">Donut</MenuItem>
+      </Select>
+    </FormControl>
+  );
 
   return (
     <PageContainer
@@ -303,14 +423,14 @@ const Dashboard = () => {
         {/* District and Office Charts */}
         <Grid container spacing={3} sx={{ mb: 3 }}>
           <Grid size={{ xs: 12, lg: 6 }}>
-            <DashboardCard title="Requests by District/Cluster">
+            <DashboardCard title="Requests by District/Cluster" action={districtAction}>
               {isLoading ? (
                 <Skeleton variant="rectangular" height={350} />
               ) : (
                 <Chart
                   options={districtChartOptions}
                   series={districtChartSeries}
-                  type="bar"
+                  type={districtChartType}
                   height={350}
                   width="100%"
                 />
@@ -318,14 +438,14 @@ const Dashboard = () => {
             </DashboardCard>
           </Grid>
           <Grid size={{ xs: 12, lg: 6 }}>
-            <DashboardCard title="Requests by Office/School">
+            <DashboardCard title="Requests by Office/School" action={officeAction}>
               {isLoading ? (
                 <Skeleton variant="rectangular" height={450} />
               ) : (
                 <Chart
                   options={officeChartOptions}
                   series={officeChartSeries}
-                  type="bar"
+                  type={officeChartType}
                   height={450}
                   width="100%"
                 />
