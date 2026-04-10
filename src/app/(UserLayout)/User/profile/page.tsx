@@ -119,11 +119,22 @@ export default function ProfilePage() {
         if (userRes.ok) {
           const userData = await userRes.json();
           setProfileUserId(userData.id || "");
+
+          // 1. Initial form data from user profile (source of truth)
           setFormData((prev) => ({
             ...prev,
             firstName: userData.firstName || "",
             lastName: userData.lastName || "",
+            schoolHead: userData.schoolHead || "",
+            schoolHeadContact: userData.schoolHeadContact || "",
+            ictCoordinator: userData.ictCoordinator || "",
+            ictCoordinatorContact: userData.ictCoordinatorContact || "",
           }));
+
+          // 2. Handle District/Office associations
+          if (userData.districtId) {
+            setSelectedDistrictId(userData.districtId);
+          }
 
           if (userData.officeId) {
             setSelectedOfficeId(userData.officeId);
@@ -131,19 +142,28 @@ export default function ProfilePage() {
             if (officeRes.ok) {
               const officeData = await officeRes.json();
               setOffice(officeData);
-              setSelectedDistrictId(officeData.districtId || userData.districtId || "");
+
+              // Update district if not already set or if it's different
+              if (officeData.districtId) {
+                setSelectedDistrictId(officeData.districtId);
+              }
+
               setFormData((prev) => ({
                 ...prev,
                 officeName: officeData.name || "",
                 districtName: officeData.district?.name || "",
-                schoolHead: officeData.schoolHead || "",
-                schoolHeadContact: officeData.schoolHeadContact || "",
-                ictCoordinator: officeData.ictCoordinator || "",
-                ictCoordinatorContact: officeData.ictCoordinatorContact || "",
+                // Fallback to office defaults ONLY if user profile fields are still empty
+                schoolHead: prev.schoolHead || officeData.schoolHead || "",
+                schoolHeadContact:
+                  prev.schoolHeadContact || officeData.schoolHeadContact || "",
+                ictCoordinator:
+                  prev.ictCoordinator || officeData.ictCoordinator || "",
+                ictCoordinatorContact:
+                  prev.ictCoordinatorContact ||
+                  officeData.ictCoordinatorContact ||
+                  "",
               }));
             }
-          } else if (userData.districtId) {
-            setSelectedDistrictId(userData.districtId);
           }
         }
       } catch (error) {
@@ -237,6 +257,10 @@ export default function ProfilePage() {
           lastName: formData.lastName,
           officeId: selectedOfficeId || null,
           districtId: selectedDistrictId || null,
+          schoolHead: formData.schoolHead,
+          schoolHeadContact: formData.schoolHeadContact,
+          ictCoordinator: formData.ictCoordinator,
+          ictCoordinatorContact: formData.ictCoordinatorContact,
         }),
       });
 
@@ -278,6 +302,10 @@ export default function ProfilePage() {
         lastName: formData.lastName,
         officeId: selectedOfficeId || null,
         districtId: selectedDistrictId || null,
+        schoolHead: formData.schoolHead,
+        schoolHeadContact: formData.schoolHeadContact,
+        ictCoordinator: formData.ictCoordinator,
+        ictCoordinatorContact: formData.ictCoordinatorContact,
       });
       queryClient.invalidateQueries({ queryKey: ["offices"] });
       queryClient.invalidateQueries({ queryKey: ["districts"] });
@@ -368,11 +396,16 @@ export default function ProfilePage() {
                   className="w-full justify-between bg-background border-border font-normal h-11"
                   disabled={!isEditing}
                 >
-                  {selectedDistrictId ? selectedDistrictName : "Select district..."}
+                  {selectedDistrictId
+                    ? selectedDistrictName
+                    : "Select district..."}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+              <PopoverContent
+                className="w-[--radix-popover-trigger-width] p-0"
+                align="start"
+              >
                 <Command>
                   <CommandInput placeholder="Search district..." />
                   <CommandList>
@@ -397,7 +430,9 @@ export default function ProfilePage() {
                           <Check
                             className={cn(
                               "mr-2 h-4 w-4",
-                              selectedDistrictId === d.id ? "opacity-100" : "opacity-0",
+                              selectedDistrictId === d.id
+                                ? "opacity-100"
+                                : "opacity-0",
                             )}
                           />
                           {d.name}
@@ -413,7 +448,10 @@ export default function ProfilePage() {
           {/* Office/School */}
           <div className="md:col-span-1 space-y-2">
             <Label className="text-sm font-semibold">Office/School *</Label>
-            <Popover open={openOfficePopover} onOpenChange={setOpenOfficePopover}>
+            <Popover
+              open={openOfficePopover}
+              onOpenChange={setOpenOfficePopover}
+            >
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -422,11 +460,18 @@ export default function ProfilePage() {
                   className="w-full justify-between bg-background border-border font-normal h-11"
                   disabled={!isEditing || !selectedDistrictId}
                 >
-                  {selectedOfficeId ? selectedOfficeName : (selectedDistrictId ? "Select office..." : "Select district first")}
+                  {selectedOfficeId
+                    ? selectedOfficeName
+                    : selectedDistrictId
+                      ? "Select office..."
+                      : "Select district first"}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+              <PopoverContent
+                className="w-[--radix-popover-trigger-width] p-0"
+                align="start"
+              >
                 <Command>
                   <CommandInput placeholder="Search office..." />
                   <CommandList>
@@ -438,12 +483,13 @@ export default function ProfilePage() {
                           onSelect={() => {
                             setSelectedOfficeId(o.id);
                             // Auto-fill form data from selected office
-                            setFormData(prev => ({
+                            setFormData((prev) => ({
                               ...prev,
                               schoolHead: o.schoolHead || "",
                               schoolHeadContact: o.schoolHeadContact || "",
                               ictCoordinator: o.ictCoordinator || "",
-                              ictCoordinatorContact: o.ictCoordinatorContact || "",
+                              ictCoordinatorContact:
+                                o.ictCoordinatorContact || "",
                             }));
                             setOpenOfficePopover(false);
                           }}
@@ -451,7 +497,9 @@ export default function ProfilePage() {
                           <Check
                             className={cn(
                               "mr-2 h-4 w-4",
-                              selectedOfficeId === o.id ? "opacity-100" : "opacity-0",
+                              selectedOfficeId === o.id
+                                ? "opacity-100"
+                                : "opacity-0",
                             )}
                           />
                           {o.name}

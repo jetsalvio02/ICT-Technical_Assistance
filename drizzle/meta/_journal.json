@@ -29,6 +29,13 @@
       "when": 1774918572328,
       "tag": "0003_lucky_smiling_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1775778000645,
+      "tag": "0004_solid_bedlam",
+      "breakpoints": true
     }
   ]
 }

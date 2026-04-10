@@ -71,14 +71,14 @@ export default function AppointmentForm() {
   const [formData, setFormData] = useState<FormData>({
     firstName: user?.firstName || "",
     lastName: user?.lastName || "",
-    office: "",
+    office: user?.officeId || "",
     dateOfRequest: new Date().toISOString().split("T")[0],
     timeOfRequest: "",
-    district: "",
-    schoolHead: "",
-    schoolHeadContact: "",
-    ictCoordinator: "",
-    ictCoordinatorContact: "",
+    district: user?.districtId || "",
+    schoolHead: user?.schoolHead || "",
+    schoolHeadContact: user?.schoolHeadContact || "",
+    ictCoordinator: user?.ictCoordinator || "",
+    ictCoordinatorContact: user?.ictCoordinatorContact || "",
     problemDescription: "",
     itemDescription: "",
     serialNumber: "",
@@ -101,6 +101,12 @@ export default function AppointmentForm() {
       ...prev,
       firstName: prev.firstName || user.firstName || "",
       lastName: prev.lastName || user.lastName || "",
+      office: prev.office || user.officeId || "",
+      district: prev.district || user.districtId || "",
+      schoolHead: prev.schoolHead || user.schoolHead || "",
+      schoolHeadContact: prev.schoolHeadContact || user.schoolHeadContact || "",
+      ictCoordinator: prev.ictCoordinator || user.ictCoordinator || "",
+      ictCoordinatorContact: prev.ictCoordinatorContact || user.ictCoordinatorContact || "",
     }));
   }, [user]);
 
@@ -288,6 +294,10 @@ export default function AppointmentForm() {
           body: JSON.stringify({
             officeId: formData.office || null,
             districtId: formData.district || null,
+            schoolHead: formData.schoolHead,
+            schoolHeadContact: formData.schoolHeadContact,
+            ictCoordinator: formData.ictCoordinator,
+            ictCoordinatorContact: formData.ictCoordinatorContact,
           }),
         });
 
@@ -295,6 +305,10 @@ export default function AppointmentForm() {
           updateUser({
             officeId: formData.office || null,
             districtId: formData.district || null,
+            schoolHead: formData.schoolHead,
+            schoolHeadContact: formData.schoolHeadContact,
+            ictCoordinator: formData.ictCoordinator,
+            ictCoordinatorContact: formData.ictCoordinatorContact,
           });
         }
       }

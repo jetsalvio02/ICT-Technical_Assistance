@@ -10,6 +10,10 @@ export interface User {
   office: string;
   officeId: string | null;
   districtId: string | null;
+  schoolHead?: string | null;
+  schoolHeadContact?: string | null;
+  ictCoordinator?: string | null;
+  ictCoordinatorContact?: string | null;
   role: string; // "Admin" or "User"
 }
 

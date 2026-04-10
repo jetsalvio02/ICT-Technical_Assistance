@@ -6,10 +6,20 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Loader2, Search, Filter, Trash2, Edit2 } from "lucide-react";
+import {
+  FileText,
+  Loader2,
+  Search,
+  Filter,
+  Trash2,
+  Edit2,
+  File,
+  FileTextIcon,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
+import Swal from "sweetalert2";
 
 interface ServiceRequest {
   id: string;
@@ -71,8 +81,17 @@ export default function RequestsPage() {
   }, [requests, searchQuery, statusFilter]);
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this request?"))
-      return;
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "You won't be able to revert this!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!",
+    });
+
+    if (!result.isConfirmed) return;
 
     try {
       const res = await fetch(`/api/service-requests/${id}`, {
@@ -137,7 +156,7 @@ export default function RequestsPage() {
           onClick={() => router.push("/User/appointments")}
           className="w-full sm:w-auto"
         >
-          New Request
+          <FileTextIcon /> New Request
         </Button>
       </div>
 

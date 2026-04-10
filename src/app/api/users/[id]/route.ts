@@ -21,6 +21,10 @@ export async function GET(
         phone: users.phone,
         officeId: users.officeId,
         districtId: users.districtId,
+        schoolHead: users.schoolHead,
+        schoolHeadContact: users.schoolHeadContact,
+        ictCoordinator: users.ictCoordinator,
+        ictCoordinatorContact: users.ictCoordinatorContact,
         role: users.role,
         isActive: users.isActive,
         lastLoginAt: users.lastLoginAt,
@@ -63,6 +67,10 @@ export async function PATCH(
     if (body.phone !== undefined) updateData.phone = body.phone;
     if (body.officeId !== undefined) updateData.officeId = body.officeId;
     if (body.districtId !== undefined) updateData.districtId = body.districtId;
+    if (body.schoolHead !== undefined) updateData.schoolHead = body.schoolHead;
+    if (body.schoolHeadContact !== undefined) updateData.schoolHeadContact = body.schoolHeadContact;
+    if (body.ictCoordinator !== undefined) updateData.ictCoordinator = body.ictCoordinator;
+    if (body.ictCoordinatorContact !== undefined) updateData.ictCoordinatorContact = body.ictCoordinatorContact;
 
     if (body.password !== undefined && body.password !== "") {
       // For security, if currentPassword is provided, verify it
